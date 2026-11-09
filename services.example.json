@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Example Web App",
+    "category": "Web",
+    "port": 3000,
+    "check": "http",
+    "url_hint": "http://localhost:3000",
+    "systemd_unit": "user:my-webapp.service"
+  },
+  {
+    "name": "Example API",
+    "category": "API",
+    "port": 8080,
+    "check": "tcp",
+    "systemd_unit": "my-api.service"
+  },
+  {
+    "name": "Example Docker container",
+    "category": "Docker",
+    "check": "docker",
+    "docker_container": "my-container",
+    "muted": false
+  }
+]

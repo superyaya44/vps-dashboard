@@ -1,0 +1,16 @@
+[Unit]
+Description=VPS Dashboard — API de monitoring (Flask)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/vps-dashboard
+ExecStart=/opt/vps-dashboard/venv/bin/python api.py
+Restart=on-failure
+RestartSec=5
+Environment=API_PORT=8788
+# Hostname utilisé pour construire les liens des services découverts (optionnel)
+# Environment=DASH_PUBLIC_HOST=myhost.example.com
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,3169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>VPS Dashboard — Infrastructure Monitoring</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="shortcut icon" href="/favicon.svg">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#0a0e27;--bg-secondary:#111638;--bg-card:rgba(255,255,255,0.05);
+  --border:rgba(255,255,255,0.08);--text:#e2e8f0;--text-muted:#94a3b8;--text-dim:#64748b;
+  --green:#22c55e;--orange:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+  --cat-agents:#8b5cf6;--cat-auto:#3b82f6;--cat-storage:#10b981;
+  --cat-network:#6366f1;--cat-web:#ec4899;--cat-db:#f59e0b;--cat-media:#14b8a6;
+}
+html{font-size:16px}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:linear-gradient(135deg,var(--bg-primary) 0%,#1a0a2e 100%);
+  color:var(--text);min-height:100vh;padding:2rem 1.5rem;
+}
+.container{max-width:1200px;margin:0 auto}
+
+/* Header */
+.header{text-align:center;margin-bottom:2.5rem;animation:fadeIn .6s ease}
+.header h1{font-size:2.5rem;font-weight:700;letter-spacing:-0.02em;
+  background:linear-gradient(135deg,#fff 0%,#a78bfa 100%);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text}
+.header .subtitle{color:var(--text-muted);margin-top:.5rem;font-size:.9rem}
+.tags{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-top:.75rem}
+.tag{background:var(--bg-card);border:1px solid var(--border);border-radius:9999px;
+  padding:.25rem .75rem;font-size:.75rem;color:var(--text-muted);backdrop-filter:blur(8px)}
+
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2.5rem}
+@media(max-width:640px){.metrics{grid-template-columns:1fr}}
+.metric-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:1.5rem;text-align:center;backdrop-filter:blur(12px);
+  animation:fadeInUp .6s ease both;
+}
+.metric-card:nth-child(1){animation-delay:.1s}
+.metric-card:nth-child(2){animation-delay:.2s}
+.metric-card:nth-child(3){animation-delay:.3s}
+.ring-container{position:relative;width:120px;height:120px;margin:0 auto .75rem}
+.ring-container svg{transform:rotate(-90deg)}
+.ring-container .value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:1.5rem;font-weight:700}
+.ring-container .value span{font-size:.85rem;font-weight:400}
+.metric-label{font-size:.85rem;color:var(--text-muted);margin-bottom:.25rem}
+.metric-detail{font-size:.75rem;color:var(--text-dim)}
+
+/* Search bar */
+.search-bar{
+  margin-bottom:1.5rem;animation:fadeInUp .6s ease both;animation-delay:.35s;
+}
+.search-bar input{
+  width:100%;padding:.75rem 1rem .75rem 2.5rem;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  color:var(--text);font-size:.9rem;outline:none;
+  backdrop-filter:blur(12px);transition:border-color .2s;
+}
+.search-bar input::placeholder{color:var(--text-dim)}
+.search-bar input:focus{border-color:rgba(255,255,255,0.2)}
+.search-wrapper{position:relative}
+.search-icon{
+  position:absolute;left:.85rem;top:50%;transform:translateY(-50%);
+  color:var(--text-dim);font-size:.9rem;pointer-events:none;
+}
+
+/* Services header */
+.services-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem}
+.services-header h2{font-size:1.25rem;font-weight:600}
+.refresh-info{font-size:.75rem;color:var(--text-dim);display:flex;align-items:center;gap:.5rem}
+.spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--blue);
+  border-radius:50%;animation:spin .8s linear infinite;display:none}
+.spinner.active{display:inline-block}
+
+/* Category sections */
+.category-section{
+  margin-bottom:1.5rem;border-radius:14px;overflow:hidden;
+  background:var(--bg-card);border:1px solid var(--border);backdrop-filter:blur(12px);
+  animation:fadeInUp .6s ease both;
+}
+.category-section.hidden{display:none}
+.category-header{
+  display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;cursor:pointer;
+  user-select:none;transition:background .2s;
+}
+.category-header:hover{background:rgba(255,255,255,0.03)}
+.category-name{font-weight:600;font-size:1rem;flex:1}
+.category-badge{
+  font-size:.65rem;padding:.2rem .6rem;border-radius:9999px;font-weight:600;color:#fff;
+  letter-spacing:.02em;
+}
+.category-count{
+  font-size:.75rem;color:var(--text-dim);margin-left:.25rem;
+}
+.category-offline-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 6px var(--red);flex-shrink:0;
+}
+.category-toggle{
+  color:var(--text-dim);font-size:.8rem;transition:transform .3s ease;
+}
+.category-section.collapsed .category-toggle{transform:rotate(-90deg)}
+.category-body{
+  padding:0 1rem 1rem;
+  transition:max-height .35s ease,opacity .3s ease,padding .3s ease;
+  overflow:hidden;
+}
+.category-section.collapsed .category-body{
+  max-height:0!important;opacity:0;padding:0 1rem;
+}
+
+/* Services grid inside category */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+@media(max-width:640px){.cat-grid{grid-template-columns:1fr}}
+
+.service-card{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem;transition:border-color .2s,transform .2s;
+  animation:fadeInUp .6s ease both;cursor:pointer;
+}
+.service-card:hover{border-color:rgba(255,255,255,0.15);transform:translateY(-2px)}
+.service-card.offline{opacity:.7}
+.card-link-icon{
+  font-size:.7rem;color:var(--blue);opacity:.6;margin-left:.35rem;vertical-align:middle;
+  cursor:pointer;padding:2px 4px;border-radius:4px;transition:opacity .2s,background .2s;
+}
+.card-link-icon:hover{opacity:1;background:rgba(59,130,246,0.15)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem}
+.card-name{font-weight:600;font-size:.95rem}
+.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.status-dot.online{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease infinite}
+.status-dot.offline{background:var(--red)}
+.status-dot.muted{background:var(--text-dim);opacity:.5}
+.service-card.muted{opacity:.45}
+.service-card.muted:hover{opacity:.7}
+.mute-badge{
+  font-size:.65rem;background:rgba(156,163,175,0.18);color:var(--text-muted);
+  padding:.1rem .4rem;border-radius:9999px;margin-left:.35rem;white-space:nowrap
+}
+.mute-icon{
+  font-size:.8rem;opacity:.55;margin-left:.35rem;vertical-align:middle;
+  cursor:help;padding:2px 4px;border-radius:4px
+}
+.card-meta{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.category-badge{font-size:.65rem;padding:.15rem .5rem;border-radius:9999px;font-weight:500;color:#fff}
+.port-badge{font-size:.7rem;font-family:'SF Mono',Monaco,monospace;color:var(--text-dim);
+  background:rgba(255,255,255,0.04);padding:.15rem .4rem;border-radius:4px}
+.card-bottom{margin-top:.6rem;display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-dim)}
+
+/* Error banner */
+.error-banner{
+  background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:10px;
+  padding:1rem 1.25rem;margin-bottom:1.5rem;display:none;align-items:center;gap:.75rem;
+  color:#fca5a5;font-size:.85rem;animation:fadeIn .3s ease;
+}
+.error-banner.visible{display:flex}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Detail Panel overlay */
+.panel-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);
+  z-index:1000;opacity:0;pointer-events:none;
+  transition:opacity .3s ease;
+}
+.panel-overlay.open{opacity:1;pointer-events:auto}
+
+/* Detail Panel slide-in */
+.detail-panel{
+  position:fixed;top:0;right:0;bottom:0;width:420px;max-width:90vw;
+  background:var(--bg-secondary);border-left:1px solid var(--border);
+  z-index:1001;transform:translateX(100%);
+  transition:transform .35s cubic-bezier(.4,0,.2,1);
+  overflow-y:auto;display:flex;flex-direction:column;
+}
+.detail-panel.open{transform:translateX(0)}
+@media(max-width:640px){.detail-panel{width:100vw;max-width:100vw}}
+
+.panel-header{
+  padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:flex-start;
+  position:sticky;top:0;background:var(--bg-secondary);z-index:2;
+}
+.panel-title{font-size:1.1rem;font-weight:700;line-height:1.3}
+.panel-subtitle{font-size:.8rem;color:var(--text-muted);margin-top:.25rem}
+.panel-close{
+  background:none;border:none;color:var(--text-muted);font-size:1.5rem;
+  cursor:pointer;padding:.25rem .5rem;border-radius:8px;
+  transition:background .2s,color .2s;flex-shrink:0;
+}
+.panel-close:hover{background:rgba(255,255,255,0.1);color:var(--text)}
+
+.panel-body{padding:1.25rem 1.5rem;flex:1}
+
+.panel-section{margin-bottom:1.5rem}
+.panel-section-title{
+  font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text-dim);margin-bottom:.75rem;font-weight:600;
+}
+
+/* Status badge in panel */
+.panel-status{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.35rem .85rem;border-radius:9999px;font-size:.8rem;font-weight:600;
+}
+.panel-status.online{background:rgba(34,197,94,0.15);color:var(--green)}
+.panel-status.offline{background:rgba(239,68,68,0.15);color:var(--red)}
+.panel-status-dot{width:8px;height:8px;border-radius:50%}
+
+/* Stats grid */
+.panel-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+.panel-stat{
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  border-radius:10px;padding:.75rem;text-align:center;
+}
+.panel-stat-value{font-size:1.1rem;font-weight:700}
+.panel-stat-label{font-size:.7rem;color:var(--text-dim);margin-top:.2rem}
+
+/* Sparkline canvas */
+.sparkline-container{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  border-radius:10px;padding:1rem;position:relative;
+}
+.sparkline-container canvas{width:100%;height:80px;display:block}
+.sparkline-empty{
+  text-align:center;color:var(--text-dim);font-size:.8rem;
+  padding:1.5rem 0;
+}
+
+/* Action buttons */
+.panel-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.panel-action-btn{
+  padding:.5rem 1rem;border-radius:8px;border:1px solid var(--border);
+  background:rgba(255,255,255,0.05);color:var(--text);
+  font-size:.8rem;font-weight:500;cursor:pointer;
+  transition:background .2s,border-color .2s;
+}
+.panel-action-btn:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2)}
+.panel-action-btn.restart{border-color:rgba(59,130,246,0.3);color:var(--blue)}
+.panel-action-btn.restart:hover{background:rgba(59,130,246,0.1)}
+.panel-action-btn.stop{border-color:rgba(239,68,68,0.3);color:var(--red)}
+.panel-action-btn.stop:hover{background:rgba(239,68,68,0.1)}
+.panel-action-btn.start{border-color:rgba(34,197,94,0.3);color:var(--green)}
+.panel-action-btn.start:hover{background:rgba(34,197,94,0.1)}
+.panel-action-btn:disabled{opacity:.4;cursor:not-allowed}
+.panel-action-result{
+  font-size:.75rem;margin-top:.5rem;padding:.5rem .75rem;
+  border-radius:6px;display:none;
+}
+.panel-action-result.success{display:block;background:rgba(34,197,94,0.1);color:var(--green)}
+.panel-action-result.error{display:block;background:rgba(239,68,68,0.1);color:var(--red)}
+
+/* Logs */
+.panel-logs{
+  background:rgba(0,0,0,0.3);border:1px solid var(--border);
+  border-radius:10px;padding:.75rem 1rem;
+  font-family:'SF Mono',Monaco,Consolas,monospace;
+  font-size:.7rem;line-height:1.5;color:var(--text-muted);
+  max-height:250px;overflow-y:auto;white-space:pre-wrap;
+  word-break:break-all;
+}
+
+/* Logs modal overlay */
+.logs-modal-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);
+  z-index:2000;opacity:0;pointer-events:none;
+  transition:opacity .25s ease;
+}
+.logs-modal-overlay.open{opacity:1;pointer-events:auto}
+
+.logs-modal{
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(.95);
+  width:720px;max-width:92vw;max-height:80vh;
+  background:var(--bg-secondary);border:1px solid var(--border);
+  border-radius:16px;z-index:2001;
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;
+}
+.logs-modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+
+.logs-modal-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1rem 1.25rem;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.logs-modal-title{font-size:.95rem;font-weight:700}
+.logs-modal-controls{display:flex;align-items:center;gap:.6rem}
+.logs-modal-btn{
+  background:rgba(255,255,255,0.05);border:1px solid var(--border);
+  border-radius:8px;color:var(--text-muted);font-size:.75rem;
+  padding:.3rem .65rem;cursor:pointer;transition:background .2s,color .2s;
+}
+.logs-modal-btn:hover{background:rgba(255,255,255,0.1);color:var(--text)}
+.logs-modal-btn.active{border-color:rgba(34,197,94,0.3);color:var(--green)}
+.logs-modal-close{
+  background:none;border:none;color:var(--text-muted);font-size:1.3rem;
+  cursor:pointer;padding:0 .35rem;border-radius:6px;
+  transition:background .2s,color .2s;
+}
+.logs-modal-close:hover{background:rgba(255,255,255,0.1);color:var(--text)}
+
+.logs-modal-body{
+  flex:1;overflow-y:auto;padding:.5rem 0;
+}
+.logs-modal-content{
+  font-family:'SF Mono',Monaco,Consolas,monospace;
+  font-size:.72rem;line-height:1.6;color:var(--text-muted);
+  padding:0 1.25rem;white-space:pre-wrap;word-break:break-all;
+  min-height:120px;
+}
+.logs-modal-footer{
+  padding:.6rem 1.25rem;border-top:1px solid var(--border);
+  font-size:.7rem;color:var(--text-dim);display:flex;
+  justify-content:space-between;align-items:center;flex-shrink:0;
+}
+
+/* Service timeline bar on cards */
+.card-timeline{
+  height:6px;border-radius:3px;overflow:hidden;
+  background:rgba(255,255,255,0.04);display:flex;margin-top:.6rem;
+}
+.card-timeline-seg{height:100%;transition:width .3s ease}
+.card-timeline-seg.online{background:var(--green);opacity:.7}
+.card-timeline-seg.offline{background:var(--red);opacity:.9}
+.card-timeline-seg.no_data{background:rgba(255,255,255,0.06)}
+.card-timeline-empty{
+  height:6px;border-radius:3px;background:rgba(255,255,255,0.04);
+  margin-top:.6rem;
+}
+
+/* Alert badge in header */
+.alert-badge{
+  display:inline-flex;align-items:center;gap:.35rem;
+  background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);
+  border-radius:9999px;padding:.2rem .7rem;font-size:.75rem;font-weight:600;
+  color:var(--red);cursor:pointer;transition:background .2s;
+}
+.alert-badge:hover{background:rgba(239,68,68,0.25)}
+.alert-badge.ok{background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.2);color:var(--green)}
+.alert-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* Alert banner */
+.alert-banner{
+  background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;
+  padding:.85rem 1.25rem;margin-bottom:1.5rem;display:none;
+  animation:fadeIn .3s ease;
+}
+.alert-banner.visible{display:block}
+.alert-banner-title{
+  font-size:.8rem;font-weight:600;color:var(--red);margin-bottom:.5rem;
+  display:flex;align-items:center;gap:.5rem;
+}
+.alert-list{display:flex;flex-direction:column;gap:.35rem}
+.alert-item{
+  font-size:.75rem;color:#fca5a5;display:flex;align-items:center;gap:.5rem;
+  padding:.3rem 0;
+}
+.alert-item .dot{width:5px;height:5px;border-radius:50%;background:var(--red);flex-shrink:0}
+.alert-item .duration{color:var(--text-dim);margin-left:auto}
+
+/* Alert config in panel */
+.alert-config-list{display:flex;flex-direction:column;gap:.5rem}
+.alert-config-item{
+  display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;
+  font-size:.8rem;
+}
+.alert-config-item .label{flex:1;color:var(--text-muted)}
+.alert-config-item .value{font-weight:600;color:var(--text)}
+.alert-config-toggle{
+  background:none;border:1px solid var(--border);border-radius:6px;
+  padding:.2rem .5rem;font-size:.7rem;color:var(--text-muted);cursor:pointer;
+  transition:background .2s;
+}
+.alert-config-toggle:hover{background:rgba(255,255,255,0.1)}
+.alert-config-toggle.on{border-color:rgba(34,197,94,0.3);color:var(--green)}
+.alert-config-add{
+  display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;
+}
+.alert-config-add select, .alert-config-add input{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);padding:.4rem .65rem;font-size:.8rem;outline:none;
+}
+.alert-config-add input{width:90px}
+.alert-config-add select{flex:1;min-width:120px}
+.alert-add-btn{
+  padding:.4rem .85rem;border-radius:8px;border:1px solid rgba(59,130,246,0.3);
+  background:rgba(59,130,246,0.1);color:var(--blue);font-size:.8rem;
+  cursor:pointer;font-weight:500;transition:background .2s;
+}
+.alert-add-btn:hover{background:rgba(59,130,246,0.2)}
+
+/* No action message */
+.panel-no-action{
+  text-align:center;padding:1rem;color:var(--text-dim);font-size:.8rem;
+  background:rgba(255,255,255,0.02);border-radius:10px;
+  border:1px dashed var(--border);
+}
+
+/* Toggle all buttons */
+.toggle-all-btn{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+  color:var(--text-muted);font-size:.85rem;padding:.25rem .55rem;cursor:pointer;
+  transition:background .2s,border-color .2s;line-height:1;
+}
+.toggle-all-btn:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:var(--text)}
+.global-counter{
+  font-size:.75rem;font-weight:600;padding:.2rem .6rem;border-radius:9999px;
+  background:rgba(100,116,139,0.15);color:var(--text-dim);border:1px solid var(--border);
+  letter-spacing:.02em;white-space:nowrap;
+}
+.global-counter.all-up{background:rgba(34,197,94,0.12);color:var(--green);border-color:rgba(34,197,94,0.25)}
+.global-counter.has-down{background:rgba(239,68,68,0.12);color:var(--red);border-color:rgba(239,68,68,0.25)}
+
+/* Footer */
+.footer{text-align:center;margin-top:3rem;color:var(--text-dim);font-size:.75rem}
+
+/* Ollama Models */
+.ollama-models-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;animation:fadeInUp .6s ease both}
+.ollama-model-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:1.25rem;backdrop-filter:blur(12px);transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.ollama-model-card:hover{border-color:rgba(255,255,255,0.15);transform:translateY(-1px)}
+.ollama-model-card.running{border-color:rgba(34,197,94,0.3)}
+.ollama-model-card.running::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--green),#4ade80);
+}
+.ollama-model-card.stopped{opacity:.75}
+.ollama-model-card.loading{border-color:rgba(59,130,246,0.3)}
+.ollama-model-card.loading::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--blue),#60a5fa);
+  animation:pulse 1.5s ease infinite;
+}
+.ollama-model-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem}
+.ollama-model-name{font-weight:600;font-size:.95rem;word-break:break-all}
+.ollama-model-badge{
+  font-size:.6rem;padding:.15rem .5rem;border-radius:9999px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;margin-left:.5rem;
+}
+.ollama-model-badge.loaded{background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3)}
+.ollama-model-badge.unloaded{background:rgba(100,116,139,0.15);color:var(--text-dim);border:1px solid var(--border)}
+.ollama-model-badge.loading{background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.3)}
+.ollama-model-info{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.ollama-model-tag{
+  font-size:.7rem;padding:.15rem .5rem;border-radius:6px;
+  background:rgba(255,255,255,0.05);color:var(--text-muted);
+}
+.ollama-model-tag.highlight{background:rgba(139,92,246,0.15);color:#a78bfa}
+.ollama-model-actions{display:flex;gap:.5rem}
+.ollama-btn{
+  flex:1;padding:.5rem .75rem;border-radius:8px;border:1px solid var(--border);
+  background:rgba(255,255,255,0.05);color:var(--text);font-size:.8rem;
+  font-weight:500;cursor:pointer;transition:all .2s;text-align:center;
+}
+.ollama-btn:hover{background:rgba(255,255,255,0.1)}
+.ollama-btn.btn-start{border-color:rgba(34,197,94,0.3);color:var(--green)}
+.ollama-btn.btn-start:hover{background:rgba(34,197,94,0.1)}
+.ollama-btn.btn-stop{border-color:rgba(239,68,68,0.3);color:var(--red)}
+.ollama-btn.btn-stop:hover{background:rgba(239,68,68,0.1)}
+.ollama-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.ollama-btn.btn-loading{border-color:rgba(59,130,246,0.3);color:var(--blue)}
+.ollama-model-size{font-size:.75rem;color:var(--text-dim);margin-top:.5rem;display:flex;justify-content:space-between}
+
+/* System Charts */
+.charts-section{
+  margin-bottom:2.5rem;display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;
+  animation:fadeInUp .6s ease both;animation-delay:.4s;
+}
+@media(max-width:768px){.charts-section{grid-template-columns:1fr}}
+.chart-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:1.25rem;backdrop-filter:blur(12px);
+}
+.chart-card h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:.75rem;font-weight:600}
+.chart-card canvas{width:100%!important;height:180px!important}
+
+.profile-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem;transition:border-color .2s,transform .2s;
+}
+.profile-card:hover{border-color:rgba(255,255,255,0.15);transform:translateY(-2px)}
+.profile-card.online{border-left:3px solid var(--green)}
+.profile-card.offline{border-left:3px solid var(--red);opacity:.7}
+.profile-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+.profile-name{font-weight:700;font-size:1rem}
+.profile-status-dot{width:8px;height:8px;border-radius:50%}
+.profile-status-dot.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+.profile-status-dot.offline{background:var(--red)}
+.profile-meta{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.75rem;color:var(--text-muted);margin-top:.5rem}
+.profile-tag{
+  font-size:.7rem;padding:.15rem .5rem;border-radius:6px;
+  background:rgba(255,255,255,0.05);color:var(--text-muted);
+}
+.profile-tag.highlight{background:rgba(139,92,246,0.15);color:#a78bfa}
+
+/* Restart All Offline button */
+.restart-all-btn{
+  padding:.35rem .85rem;border-radius:8px;border:1px solid rgba(239,68,68,0.3);
+  background:rgba(239,68,68,0.1);color:var(--red);font-size:.8rem;
+  font-weight:500;cursor:pointer;transition:background .2s;margin-left:.5rem;
+}
+.restart-all-btn:hover{background:rgba(239,68,68,0.2)}
+.restart-all-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* AI Suggest button */
+.ai-suggest-btn{
+  padding:.35rem .85rem;border-radius:8px;border:1px solid rgba(139,92,246,0.4);
+  background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.2));
+  color:var(--cat-agents);font-size:.8rem;font-weight:500;cursor:pointer;
+  transition:all .2s;margin-left:.5rem;display:inline-flex;align-items:center;gap:.25rem;
+}
+.ai-suggest-btn:hover{
+  background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(59,130,246,0.3));
+  transform:scale(1.02);
+}
+.ai-suggest-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* Inline editable service name (double-click to edit) */
+.card-name{cursor:grab;border-radius:4px;padding:0 .25rem;transition:background .2s;}
+.card-name:hover{background:rgba(255,255,255,0.05);}
+.card-name[contenteditable="true"]{cursor:text;outline:2px solid var(--blue);background:rgba(59,130,246,0.1);}
+
+/* Drag & drop visual feedback */
+.service-card{transition:transform .2s,box-shadow .2s;cursor:grab;-webkit-user-drag:element;user-select:none;}
+.service-card.dragging{opacity:.5;transform:scale(.98);box-shadow:0 4px 12px rgba(0,0,0,.3);}
+.category-section{transition:background .2s;}
+.category-section.drag-over{background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.4);box-shadow:inset 0 0 0 2px rgba(34,197,94,0.2);}
+
+/* Info button on metric labels */
+.info-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;cursor:pointer;
+  vertical-align:middle;margin-left:5px;
+  transition:opacity .2s;user-select:none;opacity:.45;
+}
+.info-btn:hover{opacity:1}
+.info-btn svg{width:16px;height:16px}
+
+/* Top Processes Modal */
+.topprocs-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);
+  z-index:2000;opacity:0;pointer-events:none;
+  transition:opacity .25s ease;
+}
+.topprocs-overlay.open{opacity:1;pointer-events:auto}
+.topprocs-modal{
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(.95);
+  width:800px;max-width:94vw;max-height:85vh;
+  background:#111638;border:1px solid var(--border);border-radius:16px;
+  display:flex;flex-direction:column;overflow:hidden;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;
+  z-index:2001;
+}
+.topprocs-modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.topprocs-modal-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.topprocs-modal-title{font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.topprocs-close{
+  background:none;border:none;color:var(--text-muted);font-size:1.2rem;
+  cursor:pointer;padding:.25rem .5rem;border-radius:6px;transition:background .2s;
+}
+.topprocs-close:hover{background:rgba(255,255,255,0.1)}
+.topprocs-body{
+  flex:1;overflow-y:auto;padding:.75rem 1rem;
+}
+.topprocs-table{
+  width:100%;border-collapse:collapse;font-size:.82rem;
+  table-layout:fixed;
+}
+.topprocs-table th{
+  text-align:left;padding:.5rem .6rem;color:var(--text-dim);font-weight:500;
+  border-bottom:1px solid var(--border);font-size:.75rem;text-transform:uppercase;
+  letter-spacing:.03em;position:sticky;top:0;background:#111638;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.topprocs-table td{
+  padding:.45rem .6rem;border-bottom:1px solid rgba(255,255,255,0.04);
+  vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.topprocs-table tr:hover td{background:rgba(255,255,255,0.03)}
+.topprocs-pid{color:var(--text-dim);font-family:monospace;font-size:.78rem}
+.topprocs-name{font-weight:500;color:var(--text)}
+.topprocs-user{color:var(--text-dim);font-size:.78rem}
+.topprocs-bar{
+  display:inline-block;height:6px;border-radius:3px;min-width:2px;
+  vertical-align:middle;margin-right:.4rem;
+}
+.topprocs-bar.cpu{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+.topprocs-bar.ram{background:linear-gradient(90deg,#3b82f6,#8b5cf6)}
+.topprocs-cmd{color:var(--text-dim);font-size:.72rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topprocs-spinner{text-align:center;padding:2rem;color:var(--text-dim)}
+
+/* Disk Top Modal */
+.disk-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0}
+.disk-tab{
+  flex:1;padding:.6rem 1rem;text-align:center;font-size:.82rem;font-weight:500;
+  color:var(--text-muted);cursor:pointer;border:none;background:none;
+  border-bottom:2px solid transparent;transition:all .2s;
+}
+.disk-tab:hover{color:var(--text);background:rgba(255,255,255,0.03)}
+.disk-tab.active{color:#818cf8;border-bottom-color:#818cf8}
+.disk-table{width:100%;border-collapse:collapse;font-size:.82rem;table-layout:fixed}
+.disk-table th{
+  text-align:left;padding:.5rem .6rem;color:var(--text-dim);font-weight:500;
+  border-bottom:1px solid var(--border);font-size:.75rem;text-transform:uppercase;
+  letter-spacing:.03em;position:sticky;top:0;background:#111638;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.disk-table td{
+  padding:.45rem .6rem;border-bottom:1px solid rgba(255,255,255,0.04);
+  vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.disk-table tr:hover td{background:rgba(255,255,255,0.03)}
+.disk-size{font-weight:600;font-family:monospace;font-size:.8rem}
+.disk-bar{
+  display:inline-block;height:6px;border-radius:3px;min-width:2px;
+  vertical-align:middle;margin-right:.4rem;
+  background:linear-gradient(90deg,#06b6d4,#818cf8);
+}
+.disk-path{color:var(--text);font-size:.8rem}
+.disk-owner{color:var(--text-dim);font-size:.78rem}
+
+/* Disk Recommendations */
+.reco-list{display:flex;flex-direction:column;gap:.75rem}
+.reco-card{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;
+  padding:1rem;transition:border-color .2s;
+}
+.reco-card.selected{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.06)}
+.reco-card-header{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.5rem}
+.reco-checkbox{
+  width:18px;height:18px;border-radius:4px;border:2px solid var(--border);
+  background:none;cursor:pointer;flex-shrink:0;margin-top:2px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+  color:transparent;font-size:.7rem;
+}
+.reco-checkbox.checked{background:#818cf8;border-color:#818cf8;color:#fff}
+.reco-title{font-weight:600;font-size:.85rem;flex:1}
+.reco-title-cmd{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.72rem;color:var(--text-dim);
+  background:rgba(0,0,0,0.25);padding:.35rem .65rem;border-radius:6px;margin-top:.5rem;
+  word-break:break-all;white-space:pre-wrap}
+.reco-cmd-input{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.72rem;color:var(--text);
+  background:rgba(0,0,0,0.25);border:1px solid var(--border);padding:.35rem .65rem;border-radius:6px;
+  flex:1;min-width:0;outline:none;transition:border-color .15s}
+.reco-cmd-input:focus{border-color:#818cf8;background:rgba(0,0,0,0.35)}
+.reco-cmd-input:disabled{opacity:.5}
+.reco-cmd-reset{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;
+  cursor:pointer;font-size:.85rem;padding:.2rem .5rem;flex-shrink:0;line-height:1}
+.reco-cmd-reset:hover{color:var(--text);border-color:#818cf8}
+.reco-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+.reco-tag{font-size:.65rem;padding:.15rem .5rem;border-radius:9999px;font-weight:500;letter-spacing:.02em}
+.reco-tag.safe{background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25)}
+.reco-tag.moderate{background:rgba(245,158,11,0.12);color:var(--orange);border:1px solid rgba(245,158,11,0.25)}
+.reco-tag.cautious{background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.25)}
+.reco-tag.savings{background:rgba(59,130,246,0.12);color:var(--blue);border:1px solid rgba(59,130,246,0.25)}
+.reco-tag.category{background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.25)}
+.reco-desc{font-size:.78rem;color:var(--text-muted);line-height:1.4;margin-top:.4rem}
+.reco-result{
+  font-size:.75rem;margin-top:.5rem;padding:.5rem .75rem;border-radius:6px;display:none;
+}
+.reco-result.success{display:block;background:rgba(34,197,94,0.1);color:var(--green)}
+.reco-result.error{display:block;background:rgba(239,68,68,0.1);color:var(--red)}
+
+/* Reco card execution states */
+.reco-card.done{
+  border-color:rgba(34,197,94,0.5)!important;
+  position:relative;overflow:hidden;
+}
+.reco-card.done::after{
+  content:'';position:absolute;inset:0;
+  background:rgba(34,197,94,0.04);
+  animation:recoFadeOverlay 1.5s ease forwards;
+  pointer-events:none;
+}
+.reco-card.done .reco-checkbox{background:var(--green)!important;border-color:var(--green)!important}
+.reco-card.done .reco-title{text-decoration:line-through;opacity:.7}
+.reco-card.done .reco-title-cmd{opacity:.5}
+.reco-card.failed{
+  border-color:rgba(239,68,68,0.5)!important;
+}
+.reco-card.executing{
+  border-color:rgba(245,158,11,0.4)!important;
+  opacity:.7;pointer-events:none;
+}
+.reco-card.executing .reco-title::after{
+  content:' ⏳';animation:recoPulse 1s infinite;
+}
+
+@keyframes recoFadeOverlay{
+  0%{background:rgba(34,197,94,0.15)}
+  100%{background:transparent}
+}
+@keyframes recoPulse{
+  0%,100%{opacity:1}50%{opacity:.4}
+}
+
+/* Toast notification */
+.reco-toast{
+  position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-120%);
+  padding:.75rem 1.5rem;border-radius:10px;font-size:.85rem;font-weight:600;
+  z-index:10000;transition:transform .4s cubic-bezier(.22,1,.36,1);
+  backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+.reco-toast.show{transform:translateX(-50%) translateY(0)}
+.reco-toast.success{
+  background:rgba(34,197,94,0.15);color:var(--green);
+  border:1px solid rgba(34,197,94,0.3);
+}
+.reco-toast.error{
+  background:rgba(239,68,68,0.15);color:var(--red);
+  border:1px solid rgba(239,68,68,0.3);
+}
+.reco-toast.partial{
+  background:rgba(245,158,11,0.15);color:var(--orange);
+  border:1px solid rgba(245,158,11,0.3);
+}
+.reco-actions-bar{
+  display:flex;gap:.5rem;padding:.75rem 1rem;border-top:1px solid var(--border);
+  flex-shrink:0;align-items:center;
+}
+.reco-actions-bar .reco-count{font-size:.8rem;color:var(--text-dim);flex:1}
+.reco-exec-btn{
+  padding:.5rem 1.1rem;border-radius:8px;border:1px solid rgba(34,197,94,0.3);
+  background:rgba(34,197,94,0.1);color:var(--green);font-size:.8rem;
+  font-weight:600;cursor:pointer;transition:background .2s;
+}
+.reco-exec-btn:hover{background:rgba(34,197,94,0.2)}
+.reco-exec-btn:disabled{opacity:.4;cursor:not-allowed}
+.reco-select-all{
+  padding:.3rem .7rem;border-radius:6px;border:1px solid var(--border);
+  background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:.75rem;
+  cursor:pointer;transition:background .2s;
+}
+.reco-select-all:hover{background:rgba(255,255,255,0.1)}
+.reco-spinner{text-align:center;padding:2rem;color:var(--text-dim)}
+.reco-spinner .spinner{display:inline-block;margin-right:.5rem}
+
+/* Process info in panel */
+.process-info{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  border-radius:10px;padding:.75rem 1rem;
+}
+.process-row{display:flex;justify-content:space-between;padding:.3rem 0;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,0.04)}
+.process-row:last-child{border-bottom:none}
+.process-row .label{color:var(--text-dim)}
+.process-row .value{color:var(--text);font-weight:500;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.75rem}
+
+/* ===== Mobile Responsive ===== */
+@media(max-width:640px){
+  body{padding:1rem .75rem}
+  .container{max-width:100%}
+
+  /* Header */
+  .header h1{font-size:1.6rem}
+  .header .subtitle{font-size:.8rem}
+  .tags{gap:.35rem}
+  .tag{font-size:.65rem;padding:.2rem .5rem}
+
+  /* Metrics rings — just tighten spacing, keep 120px rings intact */
+  .metrics{gap:1rem}
+  .metric-card{padding:1rem}
+
+  /* Services header — stack vertically */
+  .services-header{flex-wrap:wrap;gap:.75rem}
+  .services-header>div:first-child{flex-wrap:wrap;gap:.4rem}
+  .restart-all-btn{margin-left:0}
+  .refresh-info{width:100%;justify-content:flex-end}
+
+  /* Category headers */
+  .category-header{padding:.75rem 1rem}
+  .category-name{font-size:.9rem}
+
+  /* Service cards */
+  .service-card{padding:1rem}
+
+  /* Ollama & Profiles grids */
+  .ollama-models-grid,
+  .profiles-grid{grid-template-columns:1fr}
+
+  /* Ollama model cards */
+  .ollama-model-actions{flex-direction:column}
+  .ollama-btn{width:100%}
+
+  /* Panel stats */
+  .panel-stats{grid-template-columns:1fr 1fr}
+  .panel-stat-value{font-size:.95rem}
+
+  /* Detail panel full screen on mobile */
+  .detail-panel{width:100vw;max-width:100vw;border-radius:0}
+  .panel-header{padding:1rem}
+  .panel-body{padding:1rem}
+
+  /* Modal tables — horizontal scroll */
+  .topprocs-modal,
+  .logs-modal{max-width:100vw;width:100vw;max-height:100vh;border-radius:0;top:0;left:0;transform:scale(.95)}
+  .topprocs-modal.open,
+  .logs-modal.open{transform:scale(1)}
+  .topprocs-body{padding:.5rem}
+  .topprocs-table{font-size:.72rem}
+  .topprocs-table th,
+  .topprocs-table td{padding:.35rem .4rem}
+  .topprocs-cmd{max-width:120px}
+  .disk-table{font-size:.72rem}
+  .disk-table th,
+  .disk-table td{padding:.35rem .4rem}
+
+  /* Panel actions stack */
+  .panel-actions{flex-direction:column}
+  .panel-action-btn{width:100%;text-align:center}
+
+  /* Alert config */
+  .alert-config-add{flex-direction:column}
+  .alert-config-add select{min-width:0;width:100%}
+  .alert-config-add input{width:100%}
+  .alert-add-btn{width:100%;text-align:center}
+
+  /* Charts */
+  .chart-card{padding:1rem}
+  .chart-card canvas{height:140px!important}
+
+  /* Footer */
+  .footer{margin-top:2rem}
+}
+
+/* Tablet (641–768px) */
+@media(min-width:641px) and (max-width:768px){
+  .header h1{font-size:2rem}
+  .metrics{grid-template-columns:repeat(3,1fr)}
+  .ollama-models-grid,
+  .profiles-grid{grid-template-columns:repeat(2,1fr)}
+  .services-header>div:first-child{flex-wrap:wrap;gap:.4rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="error-banner" id="errorBanner">
+    <span>&#9888;</span> Unable to connect to the status API. Retrying...
+  </div>
+
+  <header class="header">
+    <h1>VPS Dashboard <span class="alert-badge ok" id="alertBadge" onclick="toggleAlertBanner()"><span class="dot"></span> <span id="alertCount">0</span></span></h1>
+    <p class="subtitle">Infrastructure Dashboard</p>
+    <div class="tags" id="headerTags">
+      <span class="tag" id="tagOs">Ubuntu 24.04 LTS</span>
+      <span class="tag" id="tagUptime">Loading...</span>
+      <span class="tag" id="tagIp">—</span>
+    </div>
+  </header>
+
+  <div class="alert-banner" id="alertBanner">
+    <div class="alert-banner-title">⚠ Active Alerts</div>
+    <div class="alert-list" id="alertList"></div>
+  </div>
+
+  <section class="metrics" id="metrics">
+    <div class="metric-card">
+      <div class="ring-container">
+        <svg width="120" height="120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+        <circle id="cpuRing" cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73" style="transition:stroke-dashoffset .8s ease,stroke .3s"/></svg>
+        <div class="value" id="cpuValue">--<span>%</span></div>
+      </div>
+      <div class="metric-label">CPU <span class="info-btn" onclick="openTopProcesses('cpu')" title="Top 10 CPU processes"><svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" fill="#818cf8"/><rect x="6" y="5" width="3" height="10" rx="1" fill="#818cf8"/><rect x="11" y="1" width="3" height="14" rx="1" fill="#818cf8"/></svg></span></div>
+      <div class="metric-detail" id="cpuDetail">-- cores</div>
+    </div>
+    <div class="metric-card">
+      <div class="ring-container">
+        <svg width="120" height="120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+        <circle id="ramRing" cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73" style="transition:stroke-dashoffset .8s ease,stroke .3s"/></svg>
+        <div class="value" id="ramValue">--<span>%</span></div>
+      </div>
+      <div class="metric-label">RAM <span class="info-btn" onclick="openTopProcesses('ram')" title="Top 10 RAM processes"><svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" fill="#818cf8"/><rect x="6" y="5" width="3" height="10" rx="1" fill="#818cf8"/><rect x="11" y="1" width="3" height="14" rx="1" fill="#818cf8"/></svg></span></div>
+      <div class="metric-detail" id="ramDetail">-- / -- GB</div>
+    </div>
+    <div class="metric-card">
+      <div class="ring-container">
+        <svg width="120" height="120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+        <circle id="diskRing" cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73" style="transition:stroke-dashoffset .8s ease,stroke .3s"/></svg>
+        <div class="value" id="diskValue">--<span>%</span></div>
+      </div>
+      <div class="metric-label">Disk <span class="info-btn" onclick="openTopDisk()" title="Top 10 files & folders"><svg viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="6" ry="2.5" stroke="#818cf8" stroke-width="1.5"/><path d="M2 3.5v4c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4" stroke="#818cf8" stroke-width="1.5"/><path d="M2 7.5v4c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4" stroke="#818cf8" stroke-width="1.5"/></svg></span></div>
+      <div class="metric-detail" id="diskDetail">-- / -- GB</div>
+    </div>
+  </section>
+
+  <!-- System Charts 24h -->
+  <section class="charts-section" id="chartsSection">
+    <div class="chart-card">
+      <h3>CPU — 24h</h3>
+      <canvas id="cpuChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>RAM — 24h</h3>
+      <canvas id="ramChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Disk — 24h</h3>
+      <canvas id="diskChart"></canvas>
+    </div>
+  </section>
+
+  <div class="search-bar">
+    <div class="search-wrapper">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="Search services by name, category, or port...">
+    </div>
+  </div>
+
+  <div class="services-header">
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <h2>Services</h2>
+      <button class="toggle-all-btn" onclick="expandAll()" title="Tout déplier">▽</button>
+      <button class="toggle-all-btn" onclick="collapseAll()" title="Tout replier">△</button>
+      <span class="global-counter" id="globalServiceCounter">–</span>
+      <button class="restart-all-btn" id="restartAllBtn" onclick="restartAllOffline(this)">⟳ Restart Offline</button>
+      <button class="restart-all-btn" id="restartAllTotalBtn" style="border-color:rgba(34,197,94,0.4);color:var(--green)" onclick="restartAllTotal(this)" title="Restart every service (SSH & dashboard excluded)">⟳ Restart All</button>
+      <button class="ai-suggest-btn" onclick="suggestCategories()" title="✨ IA: Réorganiser les services Auto-discovered">✨ Organiser</button>
+    </div>
+    <div class="refresh-info">
+      <div class="spinner" id="spinner"></div>
+      <span id="lastUpdated">Loading...</span>
+    </div>
+  </div>
+  <div id="categoriesContainer"></div>
+
+  <!-- Ollama Models Section -->
+  <div class="services-header" style="margin-top:1.5rem">
+    <h2>🦙 Ollama Models</h2>
+    <div class="refresh-info">
+      <div class="spinner" id="ollamaSpinner"></div>
+      <span id="ollamaStatus">Loading...</span>
+    </div>
+  </div>
+  <div id="ollamaModelsContainer" class="ollama-models-grid">
+    <div style="text-align:center;padding:1.5rem;color:var(--text-dim);grid-column:1/-1">Loading models...</div>
+  </div>
+
+
+  <footer class="footer">
+    Auto-refresh every 10s &middot; Powered by Flask
+  </footer>
+</div>
+
+<!-- Detail Panel -->
+<div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+<div class="detail-panel" id="detailPanel">
+
+<!-- Logs Modal -->
+<div class="logs-modal-overlay" id="logsModalOverlay" onclick="closeLogsModal()"></div>
+<div class="logs-modal" id="logsModal">
+  <div class="logs-modal-header">
+    <div class="logs-modal-title" id="logsModalTitle">Logs</div>
+    <div class="logs-modal-controls">
+      <button class="logs-modal-btn" id="logsAutoRefreshBtn" onclick="toggleLogsAutoRefresh()">Auto-refresh</button>
+      <button class="logs-modal-btn" onclick="refreshLogs()">⟳ Refresh</button>
+      <button class="logs-modal-close" onclick="closeLogsModal()">✕</button>
+    </div>
+  </div>
+  <div class="logs-modal-body">
+    <div class="logs-modal-content" id="logsModalContent">Loading...</div>
+  </div>
+  <div class="logs-modal-footer">
+    <span id="logsModalMeta"></span>
+    <span id="logsModalStatus"></span>
+  </div>
+</div>
+
+<div class="panel-header">
+    <div>
+      <div class="panel-title" id="panelTitle">—</div>
+      <div class="panel-subtitle" id="panelSubtitle">—</div>
+    </div>
+    <button class="panel-close" onclick="closePanel()" title="Close">&times;</button>
+  </div>
+  <div class="panel-body" id="panelBody">
+    <div style="text-align:center;padding:2rem;color:var(--text-dim)">Loading...</div>
+  </div>
+</div>
+
+<script>
+// Sécurité : token sur les routes d'action et de logs/detail.
+// Le token est demandé à la 1re requête 401, stocké en localStorage, envoyé via X-Dash-Token.
+(function () {
+  var origFetch = window.fetch.bind(window);
+  function withToken(input, init) {
+    init = init || {};
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.indexOf('/api/') === 0 || url.indexOf('/api/') > 0) {
+      var t = localStorage.getItem('dash_token');
+      if (t) {
+        init.headers = Object.assign({}, init.headers || {}, { 'X-Dash-Token': t });
+      }
+    }
+    return init;
+  }
+  window.fetch = function (input, init) {
+    init = withToken(input, init);
+    return origFetch(input, init).then(function (r) {
+      if (r.status === 401 && !localStorage.getItem('dash_token')) {
+        var tok = prompt('Token du dashboard requis :');
+        if (tok) { localStorage.setItem('dash_token', tok); return window.fetch(input, init); }
+      }
+      return r;
+    });
+  };
+})();
+const CIRCUMFERENCE = 2 * Math.PI * 52; // ~326.73
+const CAT_COLORS = {
+  'AI Agents':'var(--cat-agents)','Automation':'var(--cat-auto)','Storage':'var(--cat-storage)',
+  'Network':'var(--cat-network)','Web':'var(--cat-web)','Database':'var(--cat-db)','Media':'var(--cat-media)',
+};
+
+// Store all services globally for search filtering
+let allServices = [];
+// Track collapsed state per category
+let collapsedState = {};
+// Track current search filter to detect changes
+let currentFilter = null;
+
+function getColor(pct) {
+  if (pct < 60) return 'var(--green)';
+  if (pct < 85) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function setRing(id, pct) {
+  const ring = document.getElementById(id);
+  const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE;
+  ring.style.strokeDashoffset = offset;
+  ring.style.stroke = getColor(pct);
+}
+
+function updateMetrics(sys) {
+  document.getElementById('cpuValue').innerHTML = sys.cpu_percent.toFixed(1) + '<span>%</span>';
+  document.getElementById('cpuDetail').textContent = sys.cpu_count + ' cores';
+  setRing('cpuRing', sys.cpu_percent);
+
+  document.getElementById('ramValue').innerHTML = sys.ram.percent.toFixed(1) + '<span>%</span>';
+  document.getElementById('ramDetail').textContent = sys.ram.used_gb + ' / ' + sys.ram.total_gb + ' GB';
+  setRing('ramRing', sys.ram.percent);
+
+  document.getElementById('diskValue').innerHTML = sys.disk.percent.toFixed(1) + '<span>%</span>';
+  document.getElementById('diskDetail').textContent = sys.disk.used_gb + ' / ' + sys.disk.total_gb + ' GB';
+  setRing('diskRing', sys.disk.percent);
+
+  document.getElementById('tagUptime').textContent = 'Uptime: ' + sys.uptime_human;
+}
+
+function resolveUrl(urlHint) {
+  if (!urlHint || typeof urlHint !== 'string') return null;
+  var h = urlHint.trim();
+  if (!h) return null;
+
+  // HTTP/HTTPS URLs
+  if (/^https?:\/\//i.test(h)) {
+    // Replace localhost / 127.0.0.1 with the host the dashboard is served from
+    return h.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)(:\d+)?/i, '$1' + location.hostname);
+  }
+
+  // "localhost:PORT" without protocol → http://<current host>:PORT
+  var localPortMatch = h.match(/^(?:localhost|127\.0\.0\.1):(\d+)$/i);
+  if (localPortMatch) {
+    return 'http://' + location.hostname + ':' + localPortMatch[1];
+  }
+
+  // Everything else (Tailscale, TCP, ssh://, bare IP, etc.) → not clickable
+  return null;
+}
+
+function buildServiceCard(s) {
+  var catColor = CAT_COLORS[s.category] || 'var(--text-dim)';
+  // muted → grey "muted" state (never red); else offline → red
+  var cls = s.muted ? 'muted' : (s.status === 'online' ? '' : 'offline');
+  // status dot class: muted overrides offline
+  var dotCls = s.muted ? 'muted' : s.status;
+  var port = s.port ? '<span class="port-badge">:' + s.port + '</span>' : '';
+  var ms = s.response_ms != null ? s.response_ms.toFixed(1) + ' ms' : '--';
+  var uptime = s.uptime || '';
+  // muted indicator next to name
+  var muteHtml = s.muted ? '<span class="mute-icon" title="Service muted — excluded from down alerts">🔇</span>' : '';
+
+  var url = resolveUrl(s.url_hint);
+  var linkIcon = url ? '<span class="card-link-icon" onclick="event.stopPropagation();window.open(\'' + url.replace(/'/g, "\\'") + '\',\'_blank\')">↗</span>' : '';
+
+  // Timeline placeholder
+  var timelineId = 'tl-' + s.name.replace(/[^a-zA-Z0-9]/g, '-');
+  var timelineHtml = '<div class="card-timeline-empty" id="' + timelineId + '"></div>';
+
+  // Service name (double-click to edit via delegation)
+  var nameHtml = '<span class="card-name" data-service="' + s.name + '">' + s.name + '</span>' + muteHtml;
+
+  // draggable + data attribute for delegation
+  var dataAttrs = 'data-service="' + s.name.replace(/"/g, '&quot;') + '" draggable="true"';
+
+  return '<div class="service-card ' + cls + '" ' + dataAttrs + ' onclick="openPanel(\'' + s.name.replace(/'/g, "\\'") + '\')">' +
+    '<div class="card-top">' + nameHtml + linkIcon +
+    '<div class="status-dot ' + dotCls + '"></div></div>' +
+    '<div class="card-meta">' +
+    '<span class="category-badge" style="background:' + catColor + '">' + s.category + '</span>' +
+    port + '</div>' +
+    '<div class="card-bottom"><span>' + ms + '</span><span>' + uptime + '</span></div>' +
+    timelineHtml + '</div>';
+}
+
+function prepareGroups(services, filter) {
+  const query = (filter || '').toLowerCase().trim();
+
+  let filtered = services;
+  if (query) {
+    filtered = services.filter(function(s) {
+      const name = (s.name || '').toLowerCase();
+      const cat = (s.category || '').toLowerCase();
+      const port = s.port != null ? String(s.port) : '';
+      return name.indexOf(query) !== -1 || cat.indexOf(query) !== -1 || port.indexOf(query) !== -1;
+    });
+  }
+
+  const groups = {};
+  filtered.forEach(function(s) {
+    const cat = s.category || 'Other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(s);
+  });
+
+  Object.keys(groups).forEach(function(cat) {
+    groups[cat].sort(function(a, b) {
+      // A service is "down" only if genuinely offline AND not muted
+      var aDown = !a.muted && a.status !== 'online';
+      var bDown = !b.muted && b.status !== 'online';
+      if (aDown && !bDown) return -1;
+      if (!aDown && bDown) return 1;
+      return 0;
+    });
+  });
+
+  const catNames = Object.keys(groups);
+  catNames.sort(function(a, b) {
+    const aOffline = groups[a].some(function(s) { return s.status !== 'online'; });
+    const bOffline = groups[b].some(function(s) { return s.status !== 'online'; });
+    if (aOffline && !bOffline) return -1;
+    if (!aOffline && bOffline) return 1;
+    return a.localeCompare(b);
+  });
+
+  return { groups, catNames };
+}
+
+// Build a lookup: service name → { status, response_ms }
+function buildServiceMap(services) {
+  var m = {};
+  services.forEach(function(s) { m[s.name] = s; });
+  return m;
+}
+
+// Smooth in-place update: only change what actually changed
+function patchCards(container, freshServices) {
+  var freshMap = buildServiceMap(freshServices);
+  var cards = container.querySelectorAll('.service-card');
+  cards.forEach(function(card) {
+    var nameEl = card.querySelector('.card-name');
+    if (!nameEl) return;
+    // Extract name text (without link icon span)
+    var nameText = nameEl.textContent.replace('↗', '').trim();
+    var fresh = freshMap[nameText];
+    if (!fresh) return;
+
+    // Update status dot (muted overrides offline → grey)
+    var dot = card.querySelector('.status-dot');
+    if (dot) {
+      var dotCls = fresh.muted ? 'muted' : fresh.status;
+      dot.className = 'status-dot ' + dotCls;
+    }
+
+    // Update offline/muted class on card
+    card.classList.remove('offline', 'muted');
+    if (fresh.muted) {
+      card.classList.add('muted');
+    } else if (fresh.status !== 'online') {
+      card.classList.add('offline');
+    }
+
+    // Update response ms
+    var bottom = card.querySelector('.card-bottom');
+    if (bottom) {
+      var ms = fresh.response_ms != null ? fresh.response_ms.toFixed(1) + ' ms' : '--';
+      var uptime = fresh.uptime || '';
+      bottom.innerHTML = '<span>' + ms + '</span><span>' + uptime + '</span>';
+    }
+  });
+}
+
+// Update global service counter badge
+function updateGlobalCounter(groups) {
+  var allServices = [];
+  Object.keys(groups).forEach(function(cat) { allServices = allServices.concat(groups[cat]); });
+  // Muted services are excluded from the count entirely (as if they don't exist)
+  var considered = allServices.filter(function(s) { return !s.muted; });
+  var gOnline = considered.filter(function(s) { return s.status === 'online'; }).length;
+  var gTotal = considered.length;
+  var gOffline = gTotal - gOnline;
+  var gc = document.getElementById('globalServiceCounter');
+  if (gc) {
+    gc.textContent = gOnline + '↑ ' + gOffline + '↓';
+    gc.className = 'global-counter' + (gTotal === gOnline ? ' all-up' : gOnline < gTotal ? ' has-down' : '');
+  }
+  // Disable "Restart Offline" button when everything is up
+  var rb = document.getElementById('restartAllBtn');
+  if (rb) {
+    if (gOffline === 0) {
+      rb.disabled = true;
+      rb.title = 'All services are online — nothing to restart';
+      if (rb.textContent.indexOf('⟳') === 0 || rb.textContent.indexOf('✅') === 0) {
+        rb.textContent = '✅ All online';
+      }
+    } else {
+      rb.disabled = false;
+      rb.title = 'Restart all ' + gOffline + ' offline service' + (gOffline > 1 ? 's' : '');
+      if (rb.textContent.indexOf('✅') === 0 || rb.textContent.indexOf('⟳') !== 0) {
+        rb.textContent = '⟳ Restart Offline';
+      }
+    }
+  }
+}
+
+// Patch category badges (online count) without rebuilding
+function patchCategoryHeaders(container, groups) {
+  Object.keys(groups).forEach(function(cat) {
+    var section = container.querySelector('[data-category="' + cat + '"]');
+    if (!section) return;
+    var services = groups[cat];
+    var onlineCount = services.filter(function(s) { return s.status === 'online'; }).length;
+    var total = services.length;
+    // Offline dot only fires for genuinely-offline AND not-muted services
+    var realOffline = services.filter(function(s) { return !s.muted && s.status !== 'online'; }).length;
+    var hasOffline = realOffline > 0;
+
+    // Update badge
+    var badge = section.querySelector('.category-badge');
+    if (badge) badge.textContent = onlineCount + '/' + total;
+
+    // Update offline dot
+    var header = section.querySelector('.category-header');
+    if (header) {
+      var existingDot = header.querySelector('.category-offline-dot');
+      if (hasOffline && !existingDot) {
+        var dot = document.createElement('div');
+        dot.className = 'category-offline-dot';
+        header.insertBefore(dot, header.firstChild);
+      } else if (!hasOffline && existingDot) {
+        header.removeChild(existingDot);
+      }
+    }
+  });
+
+  // Update global service counter
+  updateGlobalCounter(groups);
+}
+
+// Full rebuild (search filter changed or initial load)
+function renderCategories(services, filter) {
+  const container = document.getElementById('categoriesContainer');
+  const { groups, catNames } = prepareGroups(services, filter);
+
+  // Check if this is just a data refresh (no filter change, same categories)
+  // → do a smooth in-place patch instead of full rebuild
+  var existingCats = Array.from(container.querySelectorAll('.category-section')).map(function(el) {
+    return el.getAttribute('data-category');
+  });
+  var sameStructure = existingCats.length === catNames.length &&
+    catNames.every(function(c, i) { return c === existingCats[i]; });
+
+  if (sameStructure && filter === currentFilter) {
+    // Smooth update — no DOM rebuild
+    var allFresh = [];
+    catNames.forEach(function(cat) { allFresh = allFresh.concat(groups[cat]); });
+    patchCategoryHeaders(container, groups);
+    catNames.forEach(function(cat) {
+      var section = container.querySelector('[data-category="' + cat + '"]');
+      if (!section) return;
+      var grid = section.querySelector('.cat-grid');
+      if (grid) patchCards(grid, groups[cat]);
+    });
+    // Refresh timelines from cache (no re-fetch needed)
+    allFresh.forEach(function(s) {
+      if (timelineCache[s.name]) renderTimeline(s.name, timelineCache[s.name].data);
+    });
+    return;
+  }
+
+  // Full rebuild needed (filter changed or structure changed)
+  currentFilter = filter;
+
+  let html = '';
+  catNames.forEach(function(cat, idx) {
+    const catColor = CAT_COLORS[cat] || '#64748b';
+    const services = groups[cat];
+    const onlineCount = services.filter(function(s) { return s.status === 'online'; }).length;
+    const total = services.length;
+    const hasOffline = onlineCount < total;
+    const isCollapsed = !!collapsedState[cat];
+
+    html += '<div class="category-section' + (isCollapsed ? ' collapsed' : '') + '" data-category="' + cat + '">';
+
+    // Header
+    html += '<div class="category-header" onclick="toggleCategory(\'' + cat.replace(/'/g, "\\'") + '\')">';
+    if (hasOffline) {
+      html += '<div class="category-offline-dot"></div>';
+    }
+    html += '<span class="category-name">' + cat + '</span>';
+    html += '<span class="category-badge" style="background:' + catColor + '">' + onlineCount + '/' + total + '</span>';
+    html += '<span class="category-count">online</span>';
+    html += '<span class="category-toggle">&#9660;</span>';
+    html += '</div>';
+
+    // Body
+    const bodyId = 'cat-body-' + cat.replace(/[^a-zA-Z0-9]/g, '-');
+    html += '<div class="category-body" id="' + bodyId + '">';
+    html += '<div class="cat-grid">';
+    services.forEach(function(s) {
+      html += buildServiceCard(s);
+    });
+    html += '</div></div></div>';
+  });
+
+  container.innerHTML = html;
+
+  // Setup drag & drop via event delegation
+  setupDnD();
+
+  // Set max-height for each body so transition works
+  catNames.forEach(function(cat) {
+    const bodyId = 'cat-body-' + cat.replace(/[^a-zA-Z0-9]/g, '-');
+    const el = document.getElementById(bodyId);
+    if (el) {
+      el.style.maxHeight = el.scrollHeight + 'px';
+    }
+  });
+
+  // Fetch timelines for all visible services (debounced)
+  scheduleTimelineRefresh(services);
+
+  // Update global counter after full rebuild
+  updateGlobalCounter(groups);
+}
+
+// ── Timeline rendering ─────────────────────────────────────────────────────
+
+let timelineCache = {};
+let timelineRefreshTimer = null;
+
+function scheduleTimelineRefresh(services) {
+  if (timelineRefreshTimer) clearTimeout(timelineRefreshTimer);
+  timelineRefreshTimer = setTimeout(function() {
+    fetchTimelines(services);
+  }, 500);
+}
+
+function fetchTimelines(services) {
+  var names = services.map(function(s) { return s.name; });
+  names.forEach(function(name) {
+    var elId = 'tl-' + name.replace(/[^a-zA-Z0-9]/g, '-');
+    if (!document.getElementById(elId)) return;
+    // Only fetch if not cached recently (within 5 min)
+    if (timelineCache[name] && (Date.now() - timelineCache[name].ts) < 300000) {
+      renderTimeline(name, timelineCache[name].data);
+      return;
+    }
+    var encodedName = encodeURIComponent(name);
+    fetch('/api/service/' + encodedName + '/timeline')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        timelineCache[name] = { data: d.timeline, ts: Date.now() };
+        renderTimeline(name, d.timeline);
+      })
+      .catch(function() {});
+  });
+}
+
+function renderTimeline(serviceName, timeline) {
+  var elId = 'tl-' + serviceName.replace(/[^a-zA-Z0-9]/g, '-');
+  var el = document.getElementById(elId);
+  if (!el || !timeline || timeline.length === 0) return;
+
+  var totalBuckets = timeline.length;
+  // Compress: merge every N buckets into 1 for visual compactness
+  var maxSegs = 48; // max segments to render
+  var step = Math.max(1, Math.floor(totalBuckets / maxSegs));
+
+  var html = '<div class="card-timeline">';
+  for (var i = 0; i < totalBuckets; i += step) {
+    // Get worst status in this chunk
+    var worstStatus = 'no_data';
+    for (var j = i; j < Math.min(i + step, totalBuckets); j++) {
+      if (timeline[j].status === 'offline') { worstStatus = 'offline'; break; }
+      if (timeline[j].status === 'online' && worstStatus === 'no_data') worstStatus = 'online';
+    }
+    var width = (step / totalBuckets * 100).toFixed(2);
+    html += '<div class="card-timeline-seg ' + worstStatus + '" style="width:' + width + '%"></div>';
+  }
+  html += '</div>';
+
+  el.outerHTML = html;
+}
+
+function toggleCategory(cat) {
+  collapsedState[cat] = !collapsedState[cat];
+  // Toggle class on the section
+  const sections = document.querySelectorAll('.category-section');
+  sections.forEach(function(sec) {
+    if (sec.getAttribute('data-category') === cat) {
+      sec.classList.toggle('collapsed', collapsedState[cat]);
+      // Re-set max-height after toggle
+      const body = sec.querySelector('.category-body');
+      if (!collapsedState[cat]) {
+        body.style.maxHeight = body.scrollHeight + 'px';
+      }
+    }
+  });
+}
+
+function expandAll() {
+  document.querySelectorAll('.category-section.collapsed').forEach(function(sec) {
+    var cat = sec.getAttribute('data-category');
+    collapsedState[cat] = false;
+    sec.classList.remove('collapsed');
+    var body = sec.querySelector('.category-body');
+    if (body) body.style.maxHeight = body.scrollHeight + 'px';
+  });
+}
+
+function collapseAll() {
+  document.querySelectorAll('.category-section:not(.collapsed)').forEach(function(sec) {
+    var cat = sec.getAttribute('data-category');
+    collapsedState[cat] = true;
+    sec.classList.add('collapsed');
+  });
+}
+
+async function refresh() {
+  const spinner = document.getElementById('spinner');
+  const banner = document.getElementById('errorBanner');
+  spinner.classList.add('active');
+  try {
+    const res = await fetch('/api/status');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    updateMetrics(data.system);
+    allServices = data.services;
+    const currentFilter = document.getElementById('searchInput').value;
+    renderCategories(allServices, currentFilter);
+    banner.classList.remove('visible');
+    const t = new Date(data.timestamp * 1000);
+    document.getElementById('lastUpdated').textContent = 'Updated ' + t.toLocaleTimeString();
+  } catch (e) {
+    banner.classList.add('visible');
+    document.getElementById('lastUpdated').textContent = 'Connection failed';
+  }
+  spinner.classList.remove('active');
+}
+
+// Search input: real-time filtering
+document.getElementById('searchInput').addEventListener('input', function(e) {
+  renderCategories(allServices, e.target.value);
+});
+
+refresh();
+loadOllamaModels();
+setInterval(refresh, 10000);
+setInterval(loadOllamaModels, 30000);
+
+// ── Alerts ──────────────────────────────────────────────────────────────────
+
+let alertBannerVisible = false;
+
+function refreshAlerts() {
+  fetch('/api/alerts')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var badge = document.getElementById('alertBadge');
+      var count = document.getElementById('alertCount');
+      var banner = document.getElementById('alertBanner');
+      var list = document.getElementById('alertList');
+
+      count.textContent = d.count;
+      if (d.count > 0) {
+        badge.className = 'alert-badge';
+        badge.style.cursor = 'pointer';
+      } else {
+        badge.className = 'alert-badge ok';
+      }
+
+      if (d.count > 0 && alertBannerVisible) {
+        banner.classList.add('visible');
+        var html = '';
+        d.alerts.forEach(function(a) {
+          var duration = formatDuration(a.duration_sec);
+          var typeLabel = a.alert_type === 'offline_duration' ? 'Offline' : 'High Latency';
+          html += '<div class="alert-item"><span class="dot"></span>' +
+            '<span>' + escHtml(a.service_name) + ' — ' + typeLabel + '</span>' +
+            '<span class="duration">' + duration + '</span></div>';
+        });
+        list.innerHTML = html;
+      } else {
+        banner.classList.remove('visible');
+      }
+    })
+    .catch(function() {});
+}
+
+function toggleAlertBanner() {
+  alertBannerVisible = !alertBannerVisible;
+  refreshAlerts();
+}
+
+function formatDuration(sec) {
+  if (sec < 60) return sec + 's';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+  var h = Math.floor(sec / 3600);
+  var m = Math.floor((sec % 3600) / 60);
+  return h + 'h ' + m + 'm';
+}
+
+refreshAlerts();
+setInterval(refreshAlerts, 10000);
+
+// ── Detail Panel ────────────────────────────────────────────────────────────
+
+function openPanel(serviceName) {
+  var overlay = document.getElementById('panelOverlay');
+  var panel = document.getElementById('detailPanel');
+  var title = document.getElementById('panelTitle');
+  var body = document.getElementById('panelBody');
+
+  title.textContent = serviceName;
+  body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-dim)">Loading...</div>';
+  overlay.classList.add('open');
+  panel.classList.add('open');
+
+  // Fetch detail from API
+  var encodedName = encodeURIComponent(serviceName);
+  fetch('/api/service/' + encodedName + '/detail')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      renderPanelContent(d);
+    })
+    .catch(function(e) {
+      body.innerHTML = '<div style="color:var(--red)">Failed to load: ' + e.message + '</div>';
+    });
+}
+
+function closePanel() {
+  document.getElementById('panelOverlay').classList.remove('open');
+  document.getElementById('detailPanel').classList.remove('open');
+}
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeLogsModal();
+    closePanel();
+    closeTopProcesses();
+    closeTopDisk();
+  }
+});
+
+// ── Logs Modal ──────────────────────────────────────────────────────────────
+
+var _logsServiceName = null;
+var _logsAutoRefresh = false;
+var _logsRefreshTimer = null;
+var _logsAutoRefreshInterval = 5000;
+
+function openLogsModal(serviceName) {
+  _logsServiceName = serviceName;
+  _logsAutoRefresh = false;
+  if (_logsRefreshTimer) { clearInterval(_logsRefreshTimer); _logsRefreshTimer = null; }
+
+  document.getElementById('logsModalTitle').textContent = serviceName + ' — Logs';
+  document.getElementById('logsModalOverlay').classList.add('open');
+  document.getElementById('logsModal').classList.add('open');
+  document.getElementById('logsAutoRefreshBtn').classList.remove('active');
+  document.getElementById('logsModalContent').textContent = 'Loading...';
+  document.getElementById('logsModalMeta').textContent = '';
+  document.getElementById('logsModalStatus').textContent = '';
+
+  refreshLogs();
+}
+
+function closeLogsModal() {
+  _logsServiceName = null;
+  _logsAutoRefresh = false;
+  if (_logsRefreshTimer) { clearInterval(_logsRefreshTimer); _logsRefreshTimer = null; }
+
+  document.getElementById('logsModalOverlay').classList.remove('open');
+  document.getElementById('logsModal').classList.remove('open');
+  document.getElementById('logsAutoRefreshBtn').classList.remove('active');
+}
+
+function toggleLogsAutoRefresh() {
+  _logsAutoRefresh = !_logsAutoRefresh;
+  var btn = document.getElementById('logsAutoRefreshBtn');
+
+  if (_logsAutoRefresh) {
+    btn.classList.add('active');
+    btn.textContent = 'Auto 5s';
+    _logsRefreshTimer = setInterval(refreshLogs, _logsAutoRefreshInterval);
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = 'Auto-refresh';
+    if (_logsRefreshTimer) { clearInterval(_logsRefreshTimer); _logsRefreshTimer = null; }
+  }
+}
+
+function refreshLogs() {
+  if (!_logsServiceName) return;
+  var url = '/api/service/' + encodeURIComponent(_logsServiceName) + '/logs?lines=50';
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('logsModalContent');
+      el.textContent = d.logs || 'No logs available';
+
+      // Update footer
+      var lineCount = (d.logs || '').split('\n').filter(function(l) { return l.trim(); }).length;
+      document.getElementById('logsModalMeta').textContent =
+        d.lines + ' lines requested · ' + lineCount + ' lines returned · ' + (d.log_type || 'unknown');
+      document.getElementById('logsModalStatus').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    })
+    .catch(function(e) {
+      document.getElementById('logsModalContent').textContent = 'Error loading logs: ' + e.message;
+    });
+}
+
+function renderPanelContent(d) {
+  var body = document.getElementById('panelBody');
+  var subtitle = document.getElementById('panelSubtitle');
+
+  subtitle.textContent = d.category + (d.port ? ' · Port ' + d.port : '');
+
+  var statusClass = d.status;
+  var statusDotColor = d.status === 'online' ? 'var(--green)' : 'var(--red)';
+  var responseMs = d.response_ms != null ? d.response_ms.toFixed(1) + ' ms' : '—';
+
+  var html = '';
+
+  // Status + response time
+  html += '<div class="panel-section">';
+  html += '<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">';
+  html += '<div class="panel-status ' + statusClass + '">';
+  html += '<div class="panel-status-dot" style="background:' + statusDotColor + '"></div>';
+  html += d.status ? (d.status.charAt(0).toUpperCase() + d.status.slice(1)) : 'Unknown';
+  html += '</div>';
+  html += '<span style="font-size:.85rem;color:var(--text-muted)">Response: ' + responseMs + '</span>';
+  html += '</div></div>';
+
+  // Stats grid
+  var uptimePct = d.uptime_7d_pct != null ? d.uptime_7d_pct + '%' : '—';
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Last 7 days</div>';
+  html += '<div class="panel-stats">';
+  html += '<div class="panel-stat"><div class="panel-stat-value">' + uptimePct + '</div><div class="panel-stat-label">Uptime</div></div>';
+  html += '<div class="panel-stat"><div class="panel-stat-value">' + d.restarts_7d + '</div><div class="panel-stat-label">Restarts</div></div>';
+  html += '<div class="panel-stat"><div class="panel-stat-value">' + d.total_checks_7d + '</div><div class="panel-stat-label">Checks</div></div>';
+  html += '</div></div>';
+
+  // Sparkline
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Latency (last 30 min)</div>';
+  html += '<div class="sparkline-container">';
+  if (d.sparkline && d.sparkline.length > 1) {
+    html += '<canvas id="sparklineCanvas" height="80"></canvas>';
+  } else {
+    html += '<div class="sparkline-empty">No data yet — recording starts in background</div>';
+  }
+  html += '</div></div>';
+
+  // Actions
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Actions</div>';
+  if (d.action_type && d.action_target) {
+    var isOnline = d.status === 'online';
+    var isOffline = d.status === 'offline';
+    html += '<div class="panel-actions">';
+    html += '<button class="panel-action-btn restart" onclick="doAction(\'' + escHtml(d.name) + '\',\'restart\',this)">⟳ Restart</button>';
+    html += '<button class="panel-action-btn stop"' + (isOffline ? ' disabled title="Service already stopped"' : '') + ' onclick="doAction(\'' + escHtml(d.name) + '\',\'stop\',this)">■ Stop</button>';
+    html += '<button class="panel-action-btn start"' + (isOnline ? ' disabled title="Service already running"' : '') + ' onclick="doAction(\'' + escHtml(d.name) + '\',\'start\',this)">▶ Start</button>';
+    html += '<button class="panel-action-btn" onclick="openLogsModal(\'' + escHtml(d.name) + '\')">☰ Logs</button>';
+    html += '</div>';
+    html += '<div class="panel-action-result" id="actionResult"></div>';
+    const typeLabels = {systemd: 'systemd', docker: 'Docker'};
+    const typeLabel = typeLabels[d.action_type] || d.action_type;
+    html += '<div style="font-size:.7rem;color:var(--text-dim);margin-top:.5rem">Target: ' + escHtml(typeLabel + ' → ' + d.action_target) + '</div>';
+  } else {
+    html += '<div class="panel-no-action">No action target configured for this service</div>';
+  }
+  html += '</div>';
+
+  // Monitoring — Mute toggle
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Monitoring</div>';
+  var isMuted = d.muted === true;
+  var muteBtn = isMuted
+    ? '<button class="panel-action-btn" style="background:rgba(34,197,94,0.12);color:var(--green)" onclick="toggleMute(\'' + escHtml(d.name) + '\',this)">🔊 Unmute</button>'
+    : '<button class="panel-action-btn" style="background:rgba(156,163,175,0.12);color:var(--text-muted)" onclick="toggleMute(\'' + escHtml(d.name) + '\',this)">🔇 Mute</button>';
+  html += '<div class="panel-actions">' + muteBtn + '</div>';
+  html += '<div style="font-size:.72rem;color:var(--text-dim);margin-top:.5rem">' +
+    (isMuted ? 'Muted — excluded from down alerts and counters. Still checked, shown in grey.' : 'Muting hides this service from down counters and red alerts.') +
+    '</div>';
+  html += '</div>';
+
+  // Ignorer (denylist) — visible uniquement pour les services auto-discovered
+  if (d.discovered_at) {
+    html += '<div class="panel-section">';
+    html += '<div class="panel-section-title">Auto-discovery</div>';
+    html += '<div class="panel-actions">';
+    html += '<button class="panel-action-btn" style="border-color:rgba(239,68,68,0.3);color:var(--red)" onclick="ignoreService(\'' + escHtml(d.name) + '\',this)">🚫 Ignorer</button>';
+    html += '</div>';
+    html += '<div style="font-size:.72rem;color:var(--text-dim);margin-top:.5rem">' +
+      'Masque ce service et empêche toute occurrence future (même nom ou même signature) de réapparaître. ' +
+      'Restaurable via l API: <code>/api/services/' + escHtml(d.name) + '/unignore</code>.' +
+      '</div>';
+    html += '</div>';
+  }
+
+  // Logs
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Recent Logs</div>';
+  html += '<div class="panel-logs">' + escHtml(d.logs || 'No logs available') + '</div>';
+  html += '</div>';
+
+  // Process info (fetched async)
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Process Info</div>';
+  html += '<div id="processInfoArea"><div style="color:var(--text-dim);font-size:.8rem">Loading...</div></div>';
+  html += '</div>';
+
+  // Alert config for this service
+  html += '<div class="panel-section">';
+  html += '<div class="panel-section-title">Alert Rules</div>';
+  html += '<div id="alertConfigArea" class="alert-config-list">Loading...</div>';
+  html += '</div>';
+
+  body.innerHTML = html;
+
+  // Draw sparkline after DOM insert
+  if (d.sparkline && d.sparkline.length > 1) {
+    setTimeout(function() { drawSparkline(d.sparkline); }, 50);
+  }
+
+  // Load alert configs for this service
+  loadAlertConfig(d.name);
+
+  // Load process info for this service
+  loadProcessInfo(d.name);
+}
+
+function loadAlertConfig(serviceName) {
+  fetch('/api/alerts/config')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var area = document.getElementById('alertConfigArea');
+      if (!area) return;
+
+      var configs = d.configs.filter(function(c) { return c.service_name === serviceName; });
+
+      var html = '';
+      if (configs.length === 0) {
+        html += '<div style="color:var(--text-dim);font-size:.8rem;padding:.5rem 0">No alert rules configured</div>';
+      } else {
+        configs.forEach(function(c) {
+          var typeLabel = c.metric === 'offline_duration' ? 'Offline >' : 'Latency >';
+          var unit = c.metric === 'offline_duration' ? 's' : 'ms';
+          var displayThreshold = c.metric === 'offline_duration' ? (c.threshold / 60).toFixed(0) + ' min' : c.threshold + ' ms';
+          var toggleClass = c.enabled ? 'on' : '';
+          var toggleLabel = c.enabled ? 'ON' : 'OFF';
+          html += '<div class="alert-config-item">';
+          html += '<span class="label">' + typeLabel + '</span>';
+          html += '<span class="value">' + displayThreshold + '</span>';
+          html += '<button class="alert-config-toggle ' + toggleClass + '" onclick="toggleAlertRule(' + c.id + ',this)">' + toggleLabel + '</button>';
+          html += '</div>';
+        });
+      }
+
+      // Add new rule form
+      html += '<div class="alert-config-add">';
+      html += '<select id="alertMetricSelect"><option value="offline_duration">Offline duration</option><option value="response_ms">Response time</option></select>';
+      html += '<input type="number" id="alertThresholdInput" placeholder="Threshold" min="1">';
+      html += '<button class="alert-add-btn" onclick="addAlertRule(\'' + escHtml(serviceName) + '\')">+ Add</button>';
+      html += '</div>';
+
+      area.innerHTML = html;
+    })
+    .catch(function() {
+      var area = document.getElementById('alertConfigArea');
+      if (area) area.innerHTML = '<div style="color:var(--text-dim)">Failed to load</div>';
+    });
+}
+
+function toggleAlertRule(configId, btn) {
+  fetch('/api/alerts/config/' + configId + '/toggle', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.enabled) {
+        btn.className = 'alert-config-toggle on';
+        btn.textContent = 'ON';
+      } else {
+        btn.className = 'alert-config-toggle';
+        btn.textContent = 'OFF';
+      }
+    });
+}
+
+function addAlertRule(serviceName) {
+  var metric = document.getElementById('alertMetricSelect').value;
+  var threshold = parseFloat(document.getElementById('alertThresholdInput').value);
+  if (!threshold || threshold <= 0) {
+    alert('Enter a valid threshold');
+    return;
+  }
+  // Convert minutes to seconds for offline_duration
+  if (metric === 'offline_duration') {
+    threshold = threshold * 60;
+  }
+
+  fetch('/api/alerts/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service_name: serviceName, metric: metric, threshold: threshold })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      loadAlertConfig(serviceName);
+    } else {
+      alert(d.error || 'Failed to create alert');
+    }
+  });
+}
+
+function escHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// 2026-09-19: escape pour attributs HTML (escHtml n'échappe pas les guillemets doubles)
+function escAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function drawSparkline(data) {
+  var canvas = document.getElementById('sparklineCanvas');
+  if (!canvas) return;
+
+  var dpr = window.devicePixelRatio || 1;
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 80 * dpr;
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  var w = rect.width;
+  var h = 80;
+  var padding = 10;
+  var graphW = w - padding * 2;
+  var graphH = h - padding * 2;
+
+  // Filter to online data points with response_ms
+  var points = data.filter(function(p) { return p.response_ms != null && p.status === 'online'; });
+  if (points.length < 2) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Not enough data', w / 2, h / 2);
+    return;
+  }
+
+  var maxMs = Math.max.apply(null, points.map(function(p) { return p.response_ms; }));
+  var minMs = Math.min.apply(null, points.map(function(p) { return p.response_ms; }));
+  if (maxMs === minMs) maxMs = minMs + 1;
+
+  // Draw grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (var i = 0; i <= 3; i++) {
+    var y = padding + (graphH / 3) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding, y);
+    ctx.lineTo(w - padding, y);
+    ctx.stroke();
+  }
+
+  // Draw line
+  ctx.beginPath();
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  points.forEach(function(p, idx) {
+    var x = padding + (idx / (points.length - 1)) * graphW;
+    var y = padding + graphH - ((p.response_ms - minMs) / (maxMs - minMs)) * graphH;
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill gradient under line
+  var lastX = padding + graphW;
+  var baseY = padding + graphH;
+  ctx.lineTo(lastX, baseY);
+  ctx.lineTo(padding, baseY);
+  ctx.closePath();
+  var grad = ctx.createLinearGradient(0, padding, 0, h);
+  grad.addColorStop(0, 'rgba(59,130,246,0.2)');
+  grad.addColorStop(1, 'rgba(59,130,246,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(maxMs.toFixed(0) + 'ms', padding, padding - 2);
+  ctx.fillText(minMs.toFixed(0) + 'ms', padding, h - 2);
+}
+
+function toggleMute(serviceName, btn) {
+  // Button shows "Unmute" → currently muted → toggling to unmute
+  var wasMuted = btn.textContent.indexOf('Unmute') !== -1;
+  var newMuted = !wasMuted;
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving...';
+  fetch('/api/services/' + encodeURIComponent(serviceName), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ muted: newMuted })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      // Refresh dashboard so counters, cards, and category dots update
+      setTimeout(function() { refresh(); }, 200);
+      // Re-render the panel to flip the mute button label
+      fetch('/api/service/' + encodeURIComponent(serviceName) + '/detail')
+        .then(function(r) { return r.json(); })
+        .then(function(detail) { renderPanelContent(detail); });
+    } else {
+      btn.disabled = false;
+      btn.textContent = wasMuted ? '🔊 Unmute' : '🔇 Mute';
+      alert('Failed to update mute: ' + (d.error || 'unknown'));
+    }
+  })
+  .catch(function(e) {
+    btn.disabled = false;
+    btn.textContent = wasMuted ? '🔊 Unmute' : '🔇 Mute';
+    alert('Network error: ' + e);
+  });
+}
+
+function ignoreService(serviceName, btn) {
+  if (!confirm('Ignorer " ' + serviceName + ' " ? Ce service sera masque et ne reappraraitra plus a l auto-decouverte (meme nom ou meme signature).')) return;
+  btn.disabled = true;
+  btn.textContent = '⏳...';
+  fetch('/api/services/' + encodeURIComponent(serviceName) + '/ignore', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      closePanel();  // ferme le panel (le service n'existe plus)
+      showToast('🚫 "' + serviceName + '" ignoré (signature: ' + (d.signature || '?') + ')', 'success');
+      setTimeout(function() { refresh(); }, 250);
+    } else {
+      btn.disabled = false;
+      btn.textContent = '🚫 Ignorer';
+      alert('Échec: ' + (d.error || 'unknown'));
+    }
+  })
+  .catch(function(e) {
+    btn.disabled = false;
+    btn.textContent = '🚫 Ignorer';
+    alert('Network error: ' + e);
+  });
+}
+
+function doAction(serviceName, action, btn) {
+  var resultEl = document.getElementById('actionResult');
+  resultEl.className = 'panel-action-result';
+  resultEl.style.display = 'none';
+  resultEl.textContent = '';
+
+  btn.disabled = true;
+  var labels = { restart: '⟳ Restart', stop: '■ Stop', start: '▶ Start' };
+  btn.textContent = '⏳ Working...';
+
+  var encodedName = encodeURIComponent(serviceName);
+  fetch('/api/service/' + encodedName + '/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: action })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    btn.disabled = false;
+    btn.textContent = labels[action] || action;
+
+    if (d.success) {
+      resultEl.className = 'panel-action-result success';
+      resultEl.textContent = action.charAt(0).toUpperCase() + action.slice(1) + ' successful — ' + d.status;
+      resultEl.style.display = 'block';
+
+      // Immediately patch the card on the dashboard with the confirmed status
+      patchCardByName(serviceName, d.status, d.response_ms);
+
+      // Re-fetch panel detail to update status, response, sparkline, stats
+      var encodedName = encodeURIComponent(serviceName);
+      fetch('/api/service/' + encodedName + '/detail')
+        .then(function(r) { return r.json(); })
+        .then(function(detail) { renderPanelContent(detail); });
+
+      // Refresh full dashboard after a short delay
+      setTimeout(refresh, 2000);
+    } else {
+      resultEl.className = 'panel-action-result error';
+      resultEl.textContent = 'Error: ' + (d.error || d.output || 'Unknown error');
+      resultEl.style.display = 'block';
+    }
+  })
+  .catch(function(e) {
+    btn.disabled = false;
+    btn.textContent = labels[action] || action;
+    resultEl.className = 'panel-action-result error';
+    resultEl.textContent = 'Request failed: ' + e.message;
+    resultEl.style.display = 'block';
+  });
+}
+
+// Immediately update a service card on the main dashboard by name
+function patchCardByName(serviceName, newStatus, responseMs) {
+  var cards = document.querySelectorAll('.service-card');
+  cards.forEach(function(card) {
+    var nameEl = card.querySelector('.card-name');
+    if (!nameEl) return;
+    var nameText = nameEl.textContent.replace('↗', '').trim();
+    if (nameText !== serviceName) return;
+
+    // Update status dot
+    var dot = card.querySelector('.status-dot');
+    if (dot) dot.className = 'status-dot ' + newStatus;
+
+    // Update card offline class
+    if (newStatus === 'online') card.classList.remove('offline');
+    else card.classList.add('offline');
+
+    // Update response ms
+    var bottom = card.querySelector('.card-bottom');
+    if (bottom) {
+      var ms = responseMs != null ? responseMs.toFixed(1) + ' ms' : '--';
+      var spans = bottom.querySelectorAll('span');
+      if (spans.length > 0) spans[0].textContent = ms;
+    }
+  });
+}
+
+// ── Ollama Models ──────────────────────────────────────────────────────────
+
+var ollamaLoadingModels = {}; // track models being loaded
+
+function loadOllamaModels() {
+  var spinner = document.getElementById('ollamaSpinner');
+  if (spinner) spinner.classList.add('active');
+
+  fetch('/api/ollama/models')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (spinner) spinner.classList.remove('active');
+      renderOllamaModels(d);
+    })
+    .catch(function() {
+      if (spinner) spinner.classList.remove('active');
+      var container = document.getElementById('ollamaModelsContainer');
+      container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--red);grid-column:1/-1">Failed to load Ollama models</div>';
+    });
+}
+
+function renderOllamaModels(data) {
+  var container = document.getElementById('ollamaModelsContainer');
+  var statusEl = document.getElementById('ollamaStatus');
+
+  if (data.error) {
+    container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--red);grid-column:1/-1">⚠ ' + escHtml(data.error) + '</div>';
+    if (statusEl) statusEl.textContent = 'Ollama unreachable';
+    return;
+  }
+
+  var runningCount = data.models.filter(function(m) { return m.running; }).length;
+  if (statusEl) statusEl.textContent = runningCount + '/' + data.count + ' loaded';
+
+  if (data.models.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-dim);grid-column:1/-1">No models downloaded</div>';
+    return;
+  }
+
+  var html = '';
+  data.models.forEach(function(m) {
+    var state = m.running ? 'running' : (ollamaLoadingModels[m.name] ? 'loading' : 'stopped');
+    var badgeClass = m.running ? 'loaded' : (ollamaLoadingModels[m.name] ? 'loading' : 'unloaded');
+    var badgeText = m.running ? '● Running' : (ollamaLoadingModels[m.name] ? '⏳ Loading' : '○ Stopped');
+
+    html += '<div class="ollama-model-card ' + state + '" id="ollama-card-' + escHtml(m.name.replace(/[^a-z0-9]/gi,'-')) + '">';
+    html += '<div class="ollama-model-header">';
+    html += '<span class="ollama-model-name">' + escHtml(m.name) + '</span>';
+    html += '<span class="ollama-model-badge ' + badgeClass + '">' + badgeText + '</span>';
+    html += '</div>';
+
+    html += '<div class="ollama-model-info">';
+    if (m.parameter_size) html += '<span class="ollama-model-tag highlight">' + escHtml(m.parameter_size) + '</span>';
+    if (m.quantization) html += '<span class="ollama-model-tag">' + escHtml(m.quantization) + '</span>';
+    if (m.family) html += '<span class="ollama-model-tag">' + escHtml(m.family) + '</span>';
+    if (m.format) html += '<span class="ollama-model-tag">' + escHtml(m.format) + '</span>';
+    if (m.context_length) html += '<span class="ollama-model-tag">ctx ' + m.context_length + '</span>';
+    html += '</div>';
+
+    html += '<div class="ollama-model-actions">';
+    if (m.running) {
+      html += '<button class="ollama-btn btn-stop" onclick="ollamaStop(\'' + escHtml(m.name) + '\',this)">■ Stop</button>';
+    } else if (ollamaLoadingModels[m.name]) {
+      html += '<button class="ollama-btn btn-loading" disabled>⏳ Loading...</button>';
+    } else {
+      html += '<button class="ollama-btn btn-start" onclick="ollamaStart(\'' + escHtml(m.name) + '\',this)">▶ Start</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="ollama-model-size">';
+    html += '<span>' + m.size_gb + ' GB</span>';
+    if (m.running && m.size_vram_gb > 0) html += '<span>RAM: ' + m.size_vram_gb + ' GB</span>';
+    html += '</div>';
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function ollamaStart(modelName, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Loading...';
+  btn.className = 'ollama-btn btn-loading';
+  ollamaLoadingModels[modelName] = true;
+
+  fetch('/api/ollama/models/' + encodeURIComponent(modelName) + '/start', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.status === 'already_running') {
+        delete ollamaLoadingModels[modelName];
+        loadOllamaModels();
+        return;
+      }
+      // Loading in background — poll every 5s
+      var pollInterval = setInterval(function() {
+        fetch('/api/ollama/models')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var model = data.models.find(function(m) { return m.name === modelName; });
+            if (model && model.running) {
+              delete ollamaLoadingModels[modelName];
+              clearInterval(pollInterval);
+              loadOllamaModels();
+            }
+            // Update status text
+            var statusEl = document.getElementById('ollamaStatus');
+            var runningCount = data.models.filter(function(m) { return m.running; }).length;
+            if (statusEl) statusEl.textContent = runningCount + '/' + data.count + ' loaded';
+          });
+      }, 5000);
+      // Max 5 min polling
+      setTimeout(function() {
+        clearInterval(pollInterval);
+        delete ollamaLoadingModels[modelName];
+        loadOllamaModels();
+      }, 300000);
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = '▶ Start';
+      btn.className = 'ollama-btn btn-start';
+      delete ollamaLoadingModels[modelName];
+    });
+}
+
+function ollamaStop(modelName, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Stopping...';
+
+  fetch('/api/ollama/models/' + encodeURIComponent(modelName) + '/stop', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      setTimeout(loadOllamaModels, 1000);
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = '■ Stop';
+    });
+}
+
+// ── System Charts (24h) ──────────────────────────────────────────────────
+
+var cpuChart = null, ramChart = null, diskChart = null;
+
+function loadSystemCharts() {
+  fetch('/api/system/history')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.data || d.data.length === 0) {
+        document.getElementById('chartsSection').style.display = 'none';
+        return;
+      }
+      document.getElementById('chartsSection').style.display = '';
+
+      var labels = d.data.map(function(p) {
+        var date = new Date(p.ts * 1000);
+        return date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
+      });
+
+      var commonOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 600 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17,22,56,0.95)',
+            titleColor: '#e2e8f0',
+            bodyColor: '#94a3b8',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 10,
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 8 }
+          },
+          y: {
+            display: true,
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { color: '#64748b', font: { size: 10 } },
+            beginAtZero: true
+          }
+        },
+        elements: {
+          point: { radius: 0, hoverRadius: 4 },
+          line: { tension: 0.3, borderWidth: 2 }
+        }
+      };
+
+      // CPU chart
+      if (cpuChart) cpuChart.destroy();
+      cpuChart = new Chart(document.getElementById('cpuChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: d.data.map(function(p) { return p.cpu; }),
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34,197,94,0.1)',
+            fill: true,
+          }]
+        },
+        options: Object.assign({}, commonOpts, {
+          scales: Object.assign({}, commonOpts.scales, {
+            y: Object.assign({}, commonOpts.scales.y, { max: 100, ticks: Object.assign({}, commonOpts.scales.y.ticks, { callback: function(v) { return v + '%'; } }) })
+          })
+        })
+      });
+
+      // RAM chart
+      if (ramChart) ramChart.destroy();
+      ramChart = new Chart(document.getElementById('ramChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: d.data.map(function(p) { return p.ram_gb; }),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            fill: true,
+          }]
+        },
+        options: Object.assign({}, commonOpts, {
+          scales: Object.assign({}, commonOpts.scales, {
+            y: Object.assign({}, commonOpts.scales.y, { ticks: Object.assign({}, commonOpts.scales.y.ticks, { callback: function(v) { return v.toFixed(1) + ' GB'; } }) })
+          })
+        })
+      });
+
+      // Disk chart
+      if (diskChart) diskChart.destroy();
+      diskChart = new Chart(document.getElementById('diskChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: d.data.map(function(p) { return p.disk_gb; }),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.1)',
+            fill: true,
+          }]
+        },
+        options: Object.assign({}, commonOpts, {
+          scales: Object.assign({}, commonOpts.scales, {
+            y: Object.assign({}, commonOpts.scales.y, { ticks: Object.assign({}, commonOpts.scales.y.ticks, { callback: function(v) { return v.toFixed(1) + ' GB'; } }) })
+          })
+        })
+      });
+    })
+    .catch(function() {
+      document.getElementById('chartsSection').style.display = 'none';
+    });
+}
+
+// ── Restart All Offline ──────────────────────────────────────────────────
+
+function restartAllOffline(btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Restarting...';
+
+  fetch('/api/restart-offline', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false;
+      btn.textContent = '⟳ Restart Offline';
+
+      if (d.restarted > 0) {
+        btn.textContent = '✅ ' + d.restarted + ' restarted';
+        setTimeout(function() { btn.textContent = '⟳ Restart Offline'; }, 3000);
+      } else if (d.total_offline === 0) {
+        btn.textContent = '✅ All online';
+        setTimeout(function() { btn.textContent = '⟳ Restart Offline'; }, 2000);
+      } else {
+        btn.textContent = '❌ Failed';
+        setTimeout(function() { btn.textContent = '⟳ Restart Offline'; }, 3000);
+      }
+
+      // Refresh dashboard
+      setTimeout(refresh, 2000);
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = '⟳ Restart Offline';
+    });
+}
+
+// ── Restart All Services ─────────────────────────────────────────────────
+
+function restartAllTotal(btn) {
+  if (!confirm('Restart ALL services (SSH & dashboard excluded)?\nThis will briefly interrupt every service.')) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Restarting all...';
+
+  fetch('/api/restart-all', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false;
+      var msg = '✅ ' + d.restarted + ' restarted';
+      if (d.failed > 0) msg += ' | ❌ ' + d.failed + ' failed';
+      if (d.skipped > 0) msg += ' | ⊘ ' + d.skipped + ' skipped';
+      btn.textContent = msg;
+      setTimeout(function() { btn.textContent = '⟳ Restart All'; }, 4000);
+      setTimeout(refresh, 2000);
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = '❌ Error';
+      setTimeout(function() { btn.textContent = '⟳ Restart All'; }, 3000);
+    });
+}
+
+// ── Process Info (panel) ─────────────────────────────────────────────────
+
+function loadProcessInfo(serviceName) {
+  var area = document.getElementById('processInfoArea');
+  if (!area) return;
+
+  var encodedName = encodeURIComponent(serviceName);
+  fetch('/api/service/' + encodedName + '/process')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.process) {
+        area.innerHTML = '<div style="color:var(--text-dim);font-size:.8rem">No process found</div>';
+        return;
+      }
+      var p = d.process;
+      var html = '<div class="process-info">';
+      html += '<div class="process-row"><span class="label">PID</span><span class="value">' + p.pid + '</span></div>';
+      html += '<div class="process-row"><span class="label">Process</span><span class="value">' + escHtml(p.name) + '</span></div>';
+      html += '<div class="process-row"><span class="label">Uptime</span><span class="value">' + escHtml(p.uptime_human) + '</span></div>';
+      html += '<div class="process-row"><span class="label">CPU</span><span class="value">' + p.cpu_percent + '%</span></div>';
+      html += '<div class="process-row"><span class="label">RAM</span><span class="value">' + p.memory_rss_mb + ' MB (' + p.memory_percent + '%)</span></div>';
+      html += '<div class="process-row"><span class="label">Virtual</span><span class="value">' + p.memory_vms_mb + ' MB</span></div>';
+      html += '</div>';
+      area.innerHTML = html;
+    })
+    .catch(function() {
+      area.innerHTML = '<div style="color:var(--text-dim);font-size:.8rem">Failed to load</div>';
+    });
+}
+
+// ── Initial loads for new features ───────────────────────────────────────
+loadSystemCharts();
+setInterval(loadSystemCharts, 300000);   // refresh charts every 5 min
+
+// ── Top Processes Modal ───────────────────────────────────────────────────
+var topprocsData = null;
+var topprocsMode = 'cpu';
+var topprocsInterval = null;
+
+function openTopProcesses(mode) {
+  topprocsMode = mode || 'cpu';
+  var overlay = document.getElementById('topprocsOverlay');
+  var modal = document.getElementById('topprocsModal');
+  overlay.classList.add('open');
+  modal.classList.add('open');
+  updateTopTitle();
+  loadTopProcesses();
+  // Auto-refresh every 1s
+  if (topprocsInterval) clearInterval(topprocsInterval);
+  topprocsInterval = setInterval(loadTopProcessesSilent, 1000);
+}
+
+function closeTopProcesses() {
+  document.getElementById('topprocsOverlay').classList.remove('open');
+  document.getElementById('topprocsModal').classList.remove('open');
+  if (topprocsInterval) { clearInterval(topprocsInterval); topprocsInterval = null; }
+}
+
+function updateTopTitle() {
+  var el = document.getElementById('topprocsTitle');
+  if (topprocsMode === 'cpu') {
+    el.innerHTML = '🔶 Top 10 CPU';
+  } else {
+    el.innerHTML = '🔵 Top 10 RAM';
+  }
+}
+
+function loadTopProcessesSilent() {
+  fetch('/api/top-processes')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      topprocsData = d;
+      renderTopProcesses();
+    })
+    .catch(function() {});
+}
+
+function loadTopProcesses() {
+  var body = document.getElementById('topprocsBody');
+  body.innerHTML = '<div class="topprocs-spinner">Loading...</div>';
+  fetch('/api/top-processes')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      topprocsData = d;
+      renderTopProcesses();
+    })
+    .catch(function() {
+      body.innerHTML = '<div class="topprocs-spinner" style="color:var(--red)">Failed to load</div>';
+    });
+}
+
+function renderTopProcesses() {
+  if (!topprocsData) return;
+  var body = document.getElementById('topprocsBody');
+  var items = topprocsMode === 'cpu' ? topprocsData.cpu : topprocsData.ram;
+  var maxVal = 0;
+  items.forEach(function(p) {
+    var v = topprocsMode === 'cpu' ? p.cpu_percent : p.memory_mb;
+    if (v > maxVal) maxVal = v;
+  });
+
+  var html = '<table class="topprocs-table"><colgroup>';
+  html += '<col style="width:28px"/><col style="width:60px"/><col style="width:18%"/>';
+  html += '<col style="width:70px"/>';
+  if (topprocsMode === 'cpu') {
+    html += '<col style="width:110px"/>';
+  } else {
+    html += '<col style="width:110px"/><col style="width:60px"/>';
+  }
+  html += '<col style="width:auto"/>';
+  html += '</colgroup><thead><tr>';
+  html += '<th>#</th><th>PID</th><th>Name</th><th>User</th>';
+  if (topprocsMode === 'cpu') {
+    html += '<th>CPU %</th>';
+  } else {
+    html += '<th>RAM MB</th><th>RAM %</th>';
+  }
+  html += '<th>Command</th></tr></thead><tbody>';
+
+  items.forEach(function(p, i) {
+    var val = topprocsMode === 'cpu' ? p.cpu_percent : p.memory_mb;
+    var barW = maxVal > 0 ? Math.min(40, Math.max(2, (val / maxVal) * 40)) : 2;
+    var barClass = topprocsMode === 'cpu' ? 'cpu' : 'ram';
+
+    html += '<tr>';
+    html += '<td style="color:var(--text-dim)">' + (i + 1) + '</td>';
+    html += '<td class="topprocs-pid">' + p.pid + '</td>';
+    html += '<td class="topprocs-name">' + escHtml(p.name) + '</td>';
+    html += '<td class="topprocs-user">' + escHtml(p.username) + '</td>';
+
+    if (topprocsMode === 'cpu') {
+      html += '<td><span class="topprocs-bar ' + barClass + '" style="width:' + barW + 'px"></span>' + p.cpu_percent + '%</td>';
+    } else {
+      html += '<td><span class="topprocs-bar ' + barClass + '" style="width:' + barW + 'px"></span>' + p.memory_mb + '</td>';
+      html += '<td>' + p.memory_percent + '%</td>';
+    }
+    html += '<td class="topprocs-cmd" title="' + escHtml(p.cmdline) + '">' + escHtml(p.cmdline) + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// Close on overlay click
+document.getElementById('topprocsOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeTopProcesses();
+});
+
+// ── Top Disk Modal ──────────────────────────────────────────────────────
+var diskData = null;
+var diskActiveTab = 'files';
+
+function openTopDisk() {
+  diskActiveTab = 'files';
+  var overlay = document.getElementById('diskOverlay');
+  var modal = document.getElementById('diskModal');
+  overlay.classList.add('open');
+  modal.classList.add('open');
+  updateDiskTabs();
+  loadTopDisk();
+}
+
+function closeTopDisk() {
+  document.getElementById('diskOverlay').classList.remove('open');
+  document.getElementById('diskModal').classList.remove('open');
+}
+
+function switchDiskTab(tab) {
+  diskActiveTab = tab;
+  updateDiskTabs();
+  if (tab === 'reco') {
+    loadRecommendations();
+  } else {
+    renderTopDisk();
+  }
+}
+
+function updateDiskTabs() {
+  document.querySelectorAll('.disk-tab').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.tab === diskActiveTab);
+  });
+  // Show/hide actions bar
+  var bar = document.getElementById('recoActionsBar');
+  if (bar) bar.style.display = diskActiveTab === 'reco' ? 'flex' : 'none';
+}
+
+function loadTopDisk() {
+  var body = document.getElementById('diskBody');
+  body.innerHTML = '<div class="topprocs-spinner">Scanning disk...</div>';
+  fetch('/api/top-disk')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      diskData = d;
+      renderTopDisk();
+    })
+    .catch(function() {
+      body.innerHTML = '<div class="topprocs-spinner" style="color:var(--red)">Failed to scan</div>';
+    });
+}
+
+function renderTopDisk() {
+  if (!diskData) return;
+  var body = document.getElementById('diskBody');
+  var items = diskActiveTab === 'files' ? diskData.files : diskData.dirs;
+  var maxVal = 0;
+  items.forEach(function(p) { if (p.size_bytes > maxVal) maxVal = p.size_bytes; });
+
+  var html = '<table class="disk-table"><colgroup>';
+  html += '<col style="width:28px"/><col style="width:130px"/><col style="width:70px"/><col style="width:auto"/>';
+  html += '</colgroup><thead><tr>';
+  html += '<th>#</th><th>Size</th><th>Owner</th>';
+  html += '<th>' + (diskActiveTab === 'files' ? 'File' : 'Directory') + '</th>';
+  html += '</tr></thead><tbody>';
+
+  items.forEach(function(p, i) {
+    var barW = maxVal > 0 ? Math.min(40, Math.max(2, (p.size_bytes / maxVal) * 40)) : 2;
+    html += '<tr>';
+    html += '<td style="color:var(--text-dim)">' + (i + 1) + '</td>';
+    html += '<td class="disk-size"><span class="disk-bar" style="width:' + barW + 'px"></span>' + escHtml(p.size_human) + '</td>';
+    html += '<td class="disk-owner">' + escHtml(p.owner) + '</td>';
+    html += '<td class="disk-path" title="' + escHtml(p.path) + '">' + escHtml(p.path) + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+document.getElementById('diskOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeTopDisk();
+});
+
+// ── Disk Recommendations ────────────────────────────────────────────────
+var recoData = null;
+var recoSelected = {};
+var recoOriginalCmds = {};   // commandes d'origine (pour le bouton reset ↺)
+
+function recoCmdEdited(idx, value) {
+  if (!recoData) return;
+  recoData[idx].command = value;
+  var resetBtn = document.querySelector('#recoCmd' + idx + ' ~ .reco-cmd-reset') ||
+                 (document.getElementById('recoCmd' + idx) || {}).parentElement && document.getElementById('recoCmd' + idx).parentElement.querySelector('.reco-cmd-reset');
+  if (resetBtn) resetBtn.style.display = (value !== (recoOriginalCmds[idx] || '')) ? '' : 'none';
+}
+
+function recoCmdReset(idx) {
+  if (!recoData) return;
+  var input = document.getElementById('recoCmd' + idx);
+  if (input) { input.value = recoOriginalCmds[idx] || ''; recoData[idx].command = input.value; }
+  var resetBtn = input && input.parentElement.querySelector('.reco-cmd-reset');
+  if (resetBtn) resetBtn.style.display = 'none';
+}
+
+function loadRecommendations() {
+  var body = document.getElementById('diskBody');
+  recoData = null;
+  recoSelected = {};
+  recoOriginalCmds = {};
+  body.innerHTML = '<div class="reco-spinner"><div class="spinner active" style="display:inline-block;vertical-align:middle;margin-right:.5rem"></div>Analyse du disque par l\'IA... (peut prendre 30-60s)</div>';
+  fetch('/api/disk-recommendations')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error && (!d.recommendations || d.recommendations.length === 0)) {
+        body.innerHTML = '<div class="reco-spinner" style="color:var(--red)">Erreur: ' + escHtml(d.error) + '</div>';
+        return;
+      }
+      recoData = d.recommendations || [];
+      recoOriginalCmds = {};   // snapshot des commandes d'origine pour le reset ↺
+      recoData.forEach(function(r, i) { if (r.command) recoOriginalCmds[i] = r.command; });
+      renderRecommendations();
+    })
+    .catch(function(e) {
+      body.innerHTML = '<div class="reco-spinner" style="color:var(--red)">Erreur réseau: ' + escHtml(e.message) + '</div>';
+    });
+}
+
+function toggleReco(idx) {
+  recoSelected[idx] = !recoSelected[idx];
+  renderRecommendations();
+}
+
+function selectAllRecos() {
+  if (!recoData) return;
+  var allSelected = recoData.every(function(_, i) { return recoSelected[i]; });
+  recoData.forEach(function(_, i) { recoSelected[i] = !allSelected; });
+  renderRecommendations();
+}
+
+function renderRecommendations() {
+  if (!recoData) return;
+  var body = document.getElementById('diskBody');
+
+  if (recoData.length === 0) {
+    body.innerHTML = '<div class="reco-spinner">Aucune recommandation. Le disque est propre ! ✨</div>';
+    return;
+  }
+
+  var html = '<div class="reco-list">';
+  recoData.forEach(function(r, i) {
+    var sel = recoSelected[i];
+    var done = r.executed === true;
+    html += '<div class="reco-card' + (sel ? ' selected' : '') + (done ? ' done' : '') + '" style="' + (done ? 'opacity:0.55;pointer-events:none;' : '') + '">';
+    html += '<div class="reco-card-header">';
+    html += '<button class="reco-checkbox' + (done ? ' checked' : (sel ? ' checked' : '')) + '"' + (done ? ' disabled' : '') + ' onclick="' + (done ? '' : 'toggleReco(' + i + ')') + '">' + (done ? '✅' : (sel ? '✓' : '')) + '</button>';
+    html += '<div style="flex:1">';
+    html += '<div class="reco-title">' + escHtml(r.action || 'Recommandation') + (done ? ' — ✅ Déjà fait' : '') + '</div>';
+    html += '<div class="reco-meta">';
+    html += '<span class="reco-tag ' + escHtml(r.risk || 'safe') + '">' + escHtml((r.risk || 'safe').toUpperCase()) + '</span>';
+    if (r.savings) html += '<span class="reco-tag savings">💾 ' + escHtml(r.savings) + '</span>';
+    if (r.category) html += '<span class="reco-tag category">' + escHtml(r.category) + '</span>';
+    html += '</div>';
+    html += '<div class="reco-desc">' + escHtml(r.description || '') + '</div>';
+    if (r.command) {
+      // 2026-09-19: commande éditable avant exécution (ajout d'arguments, etc.)
+      html += '<div style="display:flex;align-items:center;gap:.4rem;margin-top:.35rem">';
+      html += '<span class="reco-title-cmd" style="flex-shrink:0">$</span>';
+      html += '<input type="text" class="reco-cmd-input" id="recoCmd' + i + '" value="' + escAttr(r.command) + '"';
+      html += (done ? ' disabled' : ' spellcheck="false" autocomplete="off"');
+      html += ' oninput="recoCmdEdited(' + i + ', this.value)" onchange="recoCmdEdited(' + i + ', this.value)"';
+      html += ' title="Modifiez la commande avant exécution">';
+      html += '<button class="reco-cmd-reset" onclick="recoCmdReset(' + i + ')" title="Restaurer la commande d\'origine" style="display:none">↺</button>';
+      html += '</div>';
+    }
+    html += '<div class="reco-result" id="recoResult' + i + '"></div>';
+    html += '</div></div></div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
+
+  // Update actions bar
+  var bar = document.getElementById('recoActionsBar');
+  if (bar) {
+    var count = Object.values(recoSelected).filter(Boolean).length;
+    bar.querySelector('.reco-count').textContent = count + ' action' + (count > 1 ? 's' : '') + ' sélectionnée' + (count > 1 ? 's' : '');
+    bar.querySelector('.reco-exec-btn').disabled = count === 0;
+  }
+}
+
+function executeRecos() {
+  if (!recoData) return;
+  // 2026-09-19: relire les inputs au moment de l'exécution (commandes éditables)
+  var actions = [];
+  var actionIndices = [];
+  recoData.forEach(function(r, i) {
+    if (recoSelected[i]) {
+      var input = document.getElementById('recoCmd' + i);
+      if (input && input.value.trim()) r.command = input.value.trim();
+      actions.push(r); actionIndices.push(i);
+    }
+  });
+  if (actions.length === 0) return;
+
+  var btn = document.querySelector('.reco-exec-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Exécution...';
+
+  // Mark cards as executing
+  actionIndices.forEach(function(idx) {
+    var el = document.getElementById('recoResult' + idx);
+    var card = el ? el.closest('.reco-card') : null;
+    if (card) card.classList.add('executing');
+  });
+
+  fetch('/api/disk-cleanup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({actions: actions})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var results = d.results || [];
+    var ok = 0, fail = 0;
+    results.forEach(function(res, ri) {
+      var idx = actionIndices[ri];
+      var el = document.getElementById('recoResult' + idx);
+      var card = el ? el.closest('.reco-card') : null;
+      // Remove executing state
+      if (card) card.classList.remove('executing');
+      if (res.success) {
+        ok++;
+        if (el) {
+          el.className = 'reco-result success';
+          el.textContent = '✅ ' + (res.output || 'Succès');
+        }
+        if (card) card.classList.add('done');
+      } else {
+        fail++;
+        if (el) {
+          el.className = 'reco-result error';
+          el.textContent = '❌ ' + (res.output || 'Échec');
+        }
+        if (card) card.classList.add('failed');
+      }
+    });
+
+    // Show toast
+    if (fail === 0) {
+      showToast('✅ ' + ok + ' action' + (ok > 1 ? 's' : '') + ' exécutée' + (ok > 1 ? 's' : '') + ' avec succès', 'success');
+    } else if (ok === 0) {
+      showToast('❌ Échec de' + (fail > 1 ? 's ' : ' ') + fail + ' action' + (fail > 1 ? 's' : ''), 'error');
+    } else {
+      showToast('⚠️ ' + ok + ' OK / ' + fail + ' échouée' + (fail > 1 ? 's' : ''), 'partial');
+    }
+
+    btn.textContent = fail === 0 ? '✅ Terminé' : '⚠️ Partiel';
+    setTimeout(function() {
+      btn.textContent = '🚀 Exécuter la sélection';
+      btn.disabled = false;
+    }, 4000);
+  })
+  .catch(function(e) {
+    // Remove executing states
+    actionIndices.forEach(function(idx) {
+      var el = document.getElementById('recoResult' + idx);
+      var card = el ? el.closest('.reco-card') : null;
+      if (card) card.classList.remove('executing');
+    });
+    showToast('❌ Erreur réseau', 'error');
+    btn.textContent = '❌ Erreur réseau';
+    setTimeout(function() { btn.textContent = '🚀 Exécuter la sélection'; btn.disabled = false; }, 3000);
+  });
+}
+
+function showToast(msg, type) {
+  var existing = document.querySelector('.reco-toast');
+  if (existing) existing.remove();
+
+  var toast = document.createElement('div');
+  toast.className = 'reco-toast ' + (type || 'success');
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      toast.classList.add('show');
+    });
+  });
+
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 500);
+  }, 3500);
+}
+
+// ── Drag & Drop + Inline Edit (event delegation) ────────────────────────────
+
+var draggedService = null;
+
+function setupDnD() {
+  var container = document.getElementById('categoriesContainer');
+  if (!container) return;
+
+  var cards = container.querySelectorAll('.service-card[draggable]');
+  cards.forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      draggedService = this.getAttribute('data-service');
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', draggedService);
+    });
+    card.addEventListener('dragend', function(e) {
+      this.classList.remove('dragging');
+      document.querySelectorAll('.category-section').forEach(function(el) {
+        el.classList.remove('drag-over');
+      });
+      draggedService = null;
+    });
+  });
+
+  var sections = container.querySelectorAll('.category-section');
+  sections.forEach(function(section) {
+    section.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.classList.add('drag-over');
+    });
+    section.addEventListener('dragleave', function(e) {
+      this.classList.remove('drag-over');
+    });
+    section.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      var targetCat = this.getAttribute('data-category');
+      if (!draggedService || !targetCat) return;
+      // Grab DOM elements for optimistic move
+      var card = container.querySelector('.service-card[data-service="' + CSS.escape(draggedService) + '"]');
+      moveService(draggedService, targetCat, card, this);
+    });
+  });
+
+  // Double-click to rename (delegation on .card-name)
+  var names = container.querySelectorAll('.card-name');
+  names.forEach(function(nameEl) {
+    nameEl.addEventListener('dblclick', function(e) {
+      e.stopPropagation();
+      enableNameEdit(this);
+    });
+    nameEl.addEventListener('click', function(e) {
+      e.stopPropagation(); // prevent openPanel when clicking the name
+    });
+  });
+}
+
+function enableNameEdit(el) {
+  var original = el.getAttribute('data-service');
+  el.contentEditable = 'true';
+  el.focus();
+  var range = document.createRange();
+  range.selectNodeContents(el);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  el.onkeydown = function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+  };
+  el.onblur = function() {
+    saveServiceName(el, original);
+  };
+}
+
+function saveServiceName(el, originalName) {
+  var newName = el.textContent.trim();
+  el.contentEditable = 'false';
+  el.onkeydown = null;
+  el.onblur = null;
+  if (newName === originalName || !newName) {
+    el.textContent = originalName;
+    if (!newName) showToast('❌ Nom vide interdit', 'error');
+    return;
+  }
+  fetch('/api/services/' + encodeURIComponent(originalName), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: newName})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      showToast('✅ Renommé: ' + newName, 'success');
+      setTimeout(refresh, 400);
+    } else {
+      el.textContent = originalName;
+      showToast('❌ ' + (d.message || 'Erreur'), 'error');
+    }
+  })
+  .catch(function(err) {
+    el.textContent = originalName;
+    showToast('❌ Erreur réseau', 'error');
+  });
+}
+
+function moveService(serviceName, targetCategory, cardEl, targetSection) {
+  fetch('/api/services/' + encodeURIComponent(serviceName), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({category: targetCategory})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      // Optimistic DOM move — move the card immediately
+      if (cardEl && targetSection) {
+        var targetGrid = targetSection.querySelector('.cat-grid');
+        if (targetGrid) {
+          targetGrid.appendChild(cardEl);
+        }
+        // Update the category badge text on the card
+        var badge = cardEl.querySelector('.category-badge');
+        if (badge) badge.textContent = targetCategory;
+      }
+      showToast('✅ ' + serviceName + ' → ' + targetCategory, 'success');
+    } else {
+      showToast('❌ ' + (d.message || 'Erreur déplacement'), 'error');
+    }
+  })
+  .catch(function(err) {
+    showToast('❌ Erreur réseau', 'error');
+  });
+}
+
+// ── AI Category Suggestions ─────────────────────────────────────────────────
+
+function suggestCategories() {
+  const btn = document.querySelector('.ai-suggest-btn');
+  btn.disabled = true;
+  btn.innerHTML = '✨ Analyse...';
+  
+  fetch('/api/services/suggest-categories', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'}
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      if (data.suggestions.length === 0) {
+        showToast('✅ Tous les services sont déjà organisés !', 'success');
+      } else {
+        showSuggestionsModal(data);
+      }
+    } else {
+      showToast('❌ Erreur: ' + (data.message || 'Impossible d\'analyser'), 'error');
+    }
+  })
+  .catch(err => {
+    console.error('Suggest error:', err);
+    showToast('❌ Erreur de connexion', 'error');
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Organiser';
+  });
+}
+
+function showSuggestionsModal(data) {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'topprocs-overlay';
+  overlay.id = 'suggestOverlay';
+  overlay.onclick = function() { closeSuggestionsModal(); };
+  
+  // Create modal
+  const modal = document.createElement('div');
+  modal.className = 'topprocs-modal';
+  modal.id = 'suggestModal';
+  modal.style.maxWidth = '800px';
+  
+  const existingCats = data.existing_categories.map(c => '<span class="tag">' + c + '</span>').join(' ');
+  
+  let suggestionsHtml = data.suggestions.map((s, i) => {
+    const confidence = Math.round(s.confidence * 100);
+    const confidenceColor = confidence > 75 ? 'var(--green)' : confidence > 50 ? 'var(--orange)' : 'var(--text-dim)';
+    return `
+      <tr>
+        <td><strong>${s.service_name}</strong></td>
+        <td><span class="tag" style="background:${confidenceColor}">${confidence}%</span></td>
+        <td><span class="tag" style="background:var(--blue)">${s.suggested_category}</span></td>
+        <td style="font-size:.75rem;color:var(--text-dim)">${s.reason}</td>
+      </tr>
+    `;
+  }).join('');
+  
+  modal.innerHTML = `
+    <div class="topprocs-header">
+      <div class="topprocs-modal-title">✨ IA: Réorganisation Auto-discovered</div>
+      <button class="topprocs-close" onclick="closeSuggestionsModal()">×</button>
+    </div>
+    <div class="topprocs-body">
+      <div style="margin-bottom:1.5rem">
+        <strong>Catégories existantes:</strong><br>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">${existingCats || '<span style="color:var(--text-dim)">Aucune</span>'}</div>
+      </div>
+      
+      <div style="margin-bottom:1.5rem">
+        <strong>${data.auto_discovered_count} services Auto-discovered analysés</strong>
+      </div>
+      
+      <table class="topprocs-table">
+        <thead>
+          <tr>
+            <th style="width:25%">Service</th>
+            <th style="width:10%">Confiance</th>
+            <th style="width:20%">Catégorie suggérée</th>
+            <th style="width:45%">Raison</th>
+          </tr>
+        </thead>
+        <tbody>${suggestionsHtml}</tbody>
+      </table>
+      
+      <div style="display:flex;justify-content:flex-end;gap:.75rem;margin-top:1.5rem">
+        <button class="restart-all-btn" onclick="closeSuggestionsModal()" style="border-color:rgba(148,163,184,0.3);color:var(--text-muted);background:rgba(148,163,184,0.1)">Annuler</button>
+        <button class="restart-all-btn" onclick="applyAllSuggestions(${JSON.stringify(data.suggestions).replace(/"/g, '&quot;')})" style="border-color:rgba(34,197,94,0.4);color:var(--green);background:rgba(34,197,94,0.1)">✨ Appliquer tout</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  document.body.appendChild(modal);
+  
+  requestAnimationFrame(function() {
+    modal.classList.add('open');
+    overlay.classList.add('open');
+  });
+}
+
+function closeSuggestionsModal() {
+  const modal = document.getElementById('suggestModal');
+  const overlay = document.getElementById('suggestOverlay');
+  if (modal) modal.remove();
+  if (overlay) overlay.remove();
+}
+
+function applyAllSuggestions(suggestions) {
+  if (!confirm('Appliquer toutes les suggestions ? Cela va réorganiser ' + suggestions.length + ' services.')) {
+    return;
+  }
+  
+  fetch('/api/services/apply-suggestions', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({suggestions: suggestions})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      closeSuggestionsModal();
+      showToast('✅ ' + data.message, 'success');
+      // Refresh services
+      setTimeout(function() { refresh(); }, 500);
+    } else {
+      showToast('❌ Erreur: ' + (data.message || 'Impossible d\'appliquer'), 'error');
+    }
+  })
+  .catch(err => {
+    console.error('Apply error:', err);
+    showToast('❌ Erreur de connexion', 'error');
+  });
+}
+
+</script>
+
+<!-- Disk Top Modal -->
+<div class="topprocs-overlay" id="diskOverlay"></div>
+<div class="topprocs-modal" id="diskModal">
+  <div class="topprocs-modal-header">
+    <span class="topprocs-modal-title">💾 Disk Usage</span>
+    <button class="topprocs-close" onclick="closeTopDisk()">✕</button>
+  </div>
+  <div class="disk-tabs">
+    <button class="disk-tab active" data-tab="files" onclick="switchDiskTab('files')">📄 Top Files</button>
+    <button class="disk-tab" data-tab="dirs" onclick="switchDiskTab('dirs')">📁 Top Folders</button>
+    <button class="disk-tab" data-tab="reco" onclick="switchDiskTab('reco')">💡 Recommandations</button>
+  </div>
+  <div class="topprocs-body" id="diskBody">
+    <div class="topprocs-spinner">Loading...</div>
+  </div>
+  <div class="reco-actions-bar" id="recoActionsBar" style="display:none">
+    <button class="reco-select-all" onclick="selectAllRecos()">☑ Tout sélectionner</button>
+    <span class="reco-count">0 action sélectionnée</span>
+    <button class="reco-exec-btn" onclick="executeRecos()" disabled>🚀 Exécuter la sélection</button>
+  </div>
+</div>
+
+<!-- Top Processes Modal -->
+<div class="topprocs-overlay" id="topprocsOverlay"></div>
+<div class="topprocs-modal" id="topprocsModal">
+  <div class="topprocs-modal-header">
+    <span class="topprocs-modal-title" id="topprocsTitle">Top Processes</span>
+    <button class="topprocs-close" onclick="closeTopProcesses()">✕</button>
+  </div>
+  <div class="topprocs-body" id="topprocsBody">
+    <div class="topprocs-spinner">Loading...</div>
+  </div>
+</div>
+
+</body>
+</html>
