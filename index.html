@@ -1004,6 +1004,40 @@ body{
   </div>
 </div>
 
+<!-- Disk Top Modal -->
+<div class="topprocs-overlay" id="diskOverlay"></div>
+<div class="topprocs-modal" id="diskModal">
+  <div class="topprocs-modal-header">
+    <span class="topprocs-modal-title">💾 Disk Usage</span>
+    <button class="topprocs-close" onclick="closeTopDisk()">✕</button>
+  </div>
+  <div class="disk-tabs">
+    <button class="disk-tab active" data-tab="files" onclick="switchDiskTab('files')">📄 Top Files</button>
+    <button class="disk-tab" data-tab="dirs" onclick="switchDiskTab('dirs')">📁 Top Folders</button>
+    <button class="disk-tab" data-tab="reco" onclick="switchDiskTab('reco')">💡 Recommandations</button>
+  </div>
+  <div class="topprocs-body" id="diskBody">
+    <div class="topprocs-spinner">Loading...</div>
+  </div>
+  <div class="reco-actions-bar" id="recoActionsBar" style="display:none">
+    <button class="reco-select-all" onclick="selectAllRecos()">☑ Tout sélectionner</button>
+    <span class="reco-count">0 action sélectionnée</span>
+    <button class="reco-exec-btn" onclick="executeRecos()" disabled>🚀 Exécuter la sélection</button>
+  </div>
+</div>
+
+<!-- Top Processes Modal -->
+<div class="topprocs-overlay" id="topprocsOverlay"></div>
+<div class="topprocs-modal" id="topprocsModal">
+  <div class="topprocs-modal-header">
+    <span class="topprocs-modal-title" id="topprocsTitle">Top Processes</span>
+    <button class="topprocs-close" onclick="closeTopProcesses()">✕</button>
+  </div>
+  <div class="topprocs-body" id="topprocsBody">
+    <div class="topprocs-spinner">Loading...</div>
+  </div>
+</div>
+
 <script>
 // Sécurité : token sur les routes d'action et de logs/detail.
 // Le token est demandé à la 1re requête 401, stocké en localStorage, envoyé via X-Dash-Token.
@@ -3130,40 +3164,6 @@ function applyAllSuggestions(suggestions) {
 }
 
 </script>
-
-<!-- Disk Top Modal -->
-<div class="topprocs-overlay" id="diskOverlay"></div>
-<div class="topprocs-modal" id="diskModal">
-  <div class="topprocs-modal-header">
-    <span class="topprocs-modal-title">💾 Disk Usage</span>
-    <button class="topprocs-close" onclick="closeTopDisk()">✕</button>
-  </div>
-  <div class="disk-tabs">
-    <button class="disk-tab active" data-tab="files" onclick="switchDiskTab('files')">📄 Top Files</button>
-    <button class="disk-tab" data-tab="dirs" onclick="switchDiskTab('dirs')">📁 Top Folders</button>
-    <button class="disk-tab" data-tab="reco" onclick="switchDiskTab('reco')">💡 Recommandations</button>
-  </div>
-  <div class="topprocs-body" id="diskBody">
-    <div class="topprocs-spinner">Loading...</div>
-  </div>
-  <div class="reco-actions-bar" id="recoActionsBar" style="display:none">
-    <button class="reco-select-all" onclick="selectAllRecos()">☑ Tout sélectionner</button>
-    <span class="reco-count">0 action sélectionnée</span>
-    <button class="reco-exec-btn" onclick="executeRecos()" disabled>🚀 Exécuter la sélection</button>
-  </div>
-</div>
-
-<!-- Top Processes Modal -->
-<div class="topprocs-overlay" id="topprocsOverlay"></div>
-<div class="topprocs-modal" id="topprocsModal">
-  <div class="topprocs-modal-header">
-    <span class="topprocs-modal-title" id="topprocsTitle">Top Processes</span>
-    <button class="topprocs-close" onclick="closeTopProcesses()">✕</button>
-  </div>
-  <div class="topprocs-body" id="topprocsBody">
-    <div class="topprocs-spinner">Loading...</div>
-  </div>
-</div>
 
 </body>
 </html>
